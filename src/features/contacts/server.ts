@@ -74,8 +74,16 @@ export const searchContacts = createServerFn({ method: 'GET' })
     const ctx = await requireWorkspace()
     const p = `%${data.q}%`
     return getDb()
-      .select({ id: schema.contacts.id, firstName: schema.contacts.firstName, lastName: schema.contacts.lastName, email: schema.contacts.email })
+      .select({
+        id: schema.contacts.id,
+        firstName: schema.contacts.firstName,
+        lastName: schema.contacts.lastName,
+        email: schema.contacts.email,
+        companyId: schema.companies.id,
+        companyName: schema.companies.name,
+      })
       .from(schema.contacts)
+      .leftJoin(schema.companies, eq(schema.companies.id, schema.contacts.companyId))
       .where(and(eq(schema.contacts.workspaceId, ctx.workspaceId), data.q ? or(like(schema.contacts.firstName, p), like(schema.contacts.lastName, p), like(schema.contacts.email, p)) : undefined))
       .orderBy(asc(schema.contacts.firstName))
       .limit(20)

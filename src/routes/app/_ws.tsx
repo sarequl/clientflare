@@ -142,9 +142,12 @@ function WorkspaceShell() {
         </div>
       )}
 
-      <main id="main" className="mx-auto w-full max-w-5xl px-4 py-5 sm:px-6 sm:py-8">
-        <Outlet />
-      </main>
+      {/* Query container: full-bleed pieces (the deals board) size themselves against the content area with cqw. */}
+      <div className="@container">
+        <main id="main" className="mx-auto w-full max-w-5xl px-4 py-5 sm:px-6 sm:py-8">
+          <Outlet />
+        </main>
+      </div>
 
       <CommandSearch open={searchOpen} onClose={() => setSearchOpen(false)} />
     </div>
@@ -204,7 +207,7 @@ function SidebarContent({ app, autoFocus, onSearch }: { app: AppCtx; autoFocus?:
         <Link
           to="/app/quick"
           className="mt-3 flex h-9 items-center gap-2.5 rounded-md border border-dashed border-border-strong px-2.5 text-sm text-fg-muted hover:border-accent hover:text-accent"
-          activeProps={{ className: '!border-accent !text-accent' }}
+          activeProps={{ className: '!border-solid !border-transparent !bg-surface-2 !text-fg font-medium', 'aria-current': 'page' }}
         >
           <IconBolt size={16} />
           Quick add

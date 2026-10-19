@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { getPublicInvoice } from '#/features/invoices/server'
 import { InvoiceDocument, useAutoPrint } from '#/components/InvoiceDocument'
 import { Button } from '#/components/Button'
+import { StatusScreen } from '#/components/ErrorScreen'
 import { IconChevronLeft } from '#/components/icons'
 import { IconPrinter } from '#/components/icons-invoice'
 
@@ -34,10 +35,12 @@ function PublicInvoicePage() {
 
   if (!data) {
     return (
-      <main className="flex min-h-dvh flex-col items-center justify-center gap-2 px-4 text-center">
-        <p className="text-sm font-medium">This invoice link doesn't work</p>
-        <p className="max-w-xs text-[13px] text-fg-muted">It may have been mistyped, or the invoice was withdrawn. Ask the sender for a fresh link.</p>
-      </main>
+      <StatusScreen
+        standalone
+        logoLinks={false}
+        title="This invoice link doesn't work"
+        body="It may have been mistyped, or the invoice was withdrawn. Ask the sender for a fresh link."
+      />
     )
   }
 

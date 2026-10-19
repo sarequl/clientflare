@@ -5,7 +5,7 @@ import { listActivities } from '#/features/activities/server'
 import { listFields } from '#/features/custom-fields/server'
 import { listTags, setRecordTags } from '#/features/tags/server'
 import { listMembers } from '#/features/workspaces/server'
-import { errorMessage, formatDay } from '#/lib/format'
+import { dayOf, errorMessage, formatDay, formatLongDay } from '#/lib/format'
 import { formatMoney } from '#/lib/money'
 import { Badge, Card, CardHeader, Notice } from '#/components/Card'
 import { Button } from '#/components/Button'
@@ -67,7 +67,7 @@ function DealPage() {
   const [error, setError] = useState<string | null>(null)
   const memberName = new Map(members.map((m) => [m.userId, m.name]))
   const tagIds = deal.tags.map((t) => t.id)
-  const closedFmt = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: app.workspace.timezone })
+
 
   async function saveTags(ids: string[]) {
     setError(null)
@@ -113,7 +113,7 @@ function DealPage() {
             {deal.expectedCloseOn && (
               <span className="inline-flex items-center gap-1 tnum">
                 <IconCalendar size={13} className="text-fg-subtle" />
-                Close {formatDay(deal.expectedCloseOn)}
+                Close {formatLongDay(deal.expectedCloseOn)}
               </span>
             )}
             {company && (
@@ -133,7 +133,7 @@ function DealPage() {
         meta={
           <>
             {deal.owner ? `Owner: ${deal.owner.name}` : 'No owner'}
-            {deal.closedAt && deal.status !== 'open' && ` · ${deal.status === 'won' ? 'Won' : 'Lost'} ${closedFmt.format(new Date(deal.closedAt))}`}
+            {deal.closedAt && deal.status !== 'open' && ` · ${deal.status === 'won' ? 'Won' : 'Lost'} ${formatLongDay(dayOf(deal.closedAt, app.workspace.timezone))}`}
           </>
         }
         tags={
@@ -187,7 +187,7 @@ function DealPage() {
               items={[
                 { label: 'Value', value: <Money minor={deal.valueMinor} currency={deal.currency} /> },
                 { label: 'Stage', value: <TagChip tag={{ id: deal.stage.id, name: deal.stage.name, color: deal.stage.color }} /> },
-                { label: 'Expected close', value: deal.expectedCloseOn && <span className="tnum">{formatDay(deal.expectedCloseOn)}</span> },
+                { label: 'Expected close', value: deal.expectedCloseOn && <span className="tnum">{formatLongDay(deal.expectedCloseOn)}</span> },
                 {
                   label: 'Contact',
                   value: contact && (
@@ -206,7 +206,7 @@ function DealPage() {
                 },
                 { label: 'Owner', value: deal.owner?.name },
                 ...fields.map((f) => ({ label: f.name, value: formatFieldValue(f, deal.fieldValues[f.id]) })),
-                ...(deal.status === 'lost' ? [{ label: 'Lost reason', value: deal.lostReason }] : []),
+                ...(deal.status === 'lost' ? [{ label: 'Lost reason', value: deal.lostReason || <span className="text-fg-subtle">Not given</span> }] : []),
                 { label: 'Notes', value: deal.notes && <span className="whitespace-pre-wrap">{deal.notes}</span>, wide: true },
               ]}
             />

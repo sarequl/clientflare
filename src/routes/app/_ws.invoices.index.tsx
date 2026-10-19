@@ -12,6 +12,7 @@ import { Money } from '#/components/Money'
 import { InvoiceStatusBadge } from '#/components/InvoiceStatusBadge'
 import { IconPlus } from '#/components/icons'
 import { IconInvoice } from '#/components/icons-invoice'
+import { TabLink, Tabs } from '#/components/Tabs'
 
 const STATUS_TABS = [
   { value: undefined, label: 'All' },
@@ -87,16 +88,16 @@ function InvoicesPage() {
         }
       />
 
-      <div className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
+      <div className="mb-4 grid grid-cols-3 gap-2">
         <Card className="p-3">
           <p className="text-[12px] text-fg-muted">Outstanding</p>
-          <div className="mt-0.5 flex flex-col text-base font-semibold">
+          <div className="mt-0.5 flex flex-col text-[15px] font-semibold sm:text-base">
             {money.length ? money.map((s) => <Money key={s.currency} minor={s.outstanding ?? 0} currency={s.currency} />) : <span className="text-fg-subtle">—</span>}
           </div>
         </Card>
         <Card className="p-3">
           <p className="text-[12px] text-fg-muted">Overdue</p>
-          <div className="mt-0.5 flex flex-col text-base font-semibold">
+          <div className="mt-0.5 flex flex-col text-[15px] font-semibold sm:text-base">
             {money.some((s) => s.overdue) ? (
               money
                 .filter((s) => s.overdue)
@@ -110,30 +111,19 @@ function InvoicesPage() {
             )}
           </div>
         </Card>
-        <Card className="col-span-2 p-3 sm:col-span-1">
+        <Card className="p-3">
           <p className="text-[12px] text-fg-muted">Drafts</p>
-          <p className="mt-0.5 text-base font-semibold tnum">{draftCount}</p>
+          <p className="mt-0.5 text-[15px] font-semibold tnum sm:text-base">{draftCount}</p>
         </Card>
       </div>
 
-      <nav aria-label="Filter by status" className="-mx-4 mb-3 flex gap-1 overflow-x-auto border-b border-border px-4 sm:mx-0 sm:px-0">
-        {STATUS_TABS.map((t) => {
-          const current = search.status === t.value
-          return (
-            <Link
-              key={t.label}
-              from={Route.fullPath}
-              search={(s) => ({ ...s, status: t.value, page: undefined })}
-              aria-current={current ? 'page' : undefined}
-              className={`-mb-px shrink-0 border-b-2 px-3 py-2 text-sm whitespace-nowrap transition-colors ${
-                current ? 'border-accent font-medium text-fg' : 'border-transparent text-fg-muted hover:text-fg'
-              }`}
-            >
-              {t.label}
-            </Link>
-          )
-        })}
-      </nav>
+      <Tabs label="Filter by status" className="mb-3">
+        {STATUS_TABS.map((t) => (
+          <TabLink key={t.label} from={Route.fullPath} search={(s) => ({ ...s, status: t.value, page: undefined })} active={search.status === t.value}>
+            {t.label}
+          </TabLink>
+        ))}
+      </Tabs>
 
       <div className="mb-3">
         <SearchInput

@@ -89,7 +89,7 @@ export function MinimalTemplate({ invoice, business, accent }: InvoiceTemplatePr
         </tbody>
       </table>
 
-      <dl className="relative mt-8 ml-auto grid w-full max-w-72 grid-cols-[1fr_auto] gap-x-6 gap-y-1 break-inside-avoid">
+      <dl className="relative mt-8 ml-auto grid w-full grid-cols-[1fr_auto] gap-x-6 gap-y-1 break-inside-avoid sm:max-w-72 print:max-w-72">
         <dt className={label}>Subtotal</dt>
         <dd className="text-right tnum">{money(invoice.subtotalMinor)}</dd>
         {invoice.taxRateBp > 0 && (

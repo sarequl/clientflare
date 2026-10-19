@@ -15,7 +15,7 @@
   --border-strong: oklch(0.84 0.006 250);
   --fg: oklch(0.21 0.01 250);
   --fg-muted: oklch(0.47 0.012 250);
-  --fg-subtle: oklch(0.6 0.01 250);
+  --fg-subtle: oklch(0.52 0.01 250); /* 4.6:1 on surface-3, 5.5:1 on surface */
   --accent: oklch(0.52 0.12 160);
   --accent-hover: oklch(0.47 0.12 160);
   --accent-fg: oklch(0.99 0.01 160);
@@ -48,7 +48,7 @@
   --border-strong: oklch(0.37 0.01 250);
   --fg: oklch(0.95 0.004 250);
   --fg-muted: oklch(0.72 0.01 250);
-  --fg-subtle: oklch(0.58 0.01 250);
+  --fg-subtle: oklch(0.65 0.01 250); /* 4.7:1 on surface-3, 5.5:1 on surface */
   --accent: oklch(0.72 0.13 160);
   --accent-hover: oklch(0.77 0.13 160);
   --accent-fg: oklch(0.2 0.03 160);
@@ -81,7 +81,7 @@
     --border-strong: oklch(0.37 0.01 250);
     --fg: oklch(0.95 0.004 250);
     --fg-muted: oklch(0.72 0.01 250);
-    --fg-subtle: oklch(0.58 0.01 250);
+    --fg-subtle: oklch(0.65 0.01 250); /* 4.7:1 on surface-3, 5.5:1 on surface */
     --accent: oklch(0.72 0.13 160);
     --accent-hover: oklch(0.77 0.13 160);
     --accent-fg: oklch(0.2 0.03 160);
@@ -135,6 +135,8 @@
 
 @layer base {
   html {
+    /* Reserve the scrollbar's space so pages don't shift sideways between short and long ones. */
+    scrollbar-gutter: stable;
     -webkit-text-size-adjust: 100%;
     -webkit-tap-highlight-color: transparent;
   }
@@ -237,16 +239,27 @@
 /* Invoices print as A4 sheets: white page, no app chrome, no buttons. */
 @page {
   size: A4;
-  margin: 16mm 14mm;
+  margin: 14mm;
 }
 @media print {
+  /*
+   * The theme script sets color-scheme inline on <html>; without !important a
+   * dark theme wins and Chrome paints the page margins dark.
+   */
   html,
   body {
     background: #fff !important;
     color: #000;
-    color-scheme: light;
+    color-scheme: light !important;
   }
+  html {
+    scrollbar-gutter: auto;
+  }
+  /* The @page margin is the only margin: the sheet fills the printable width exactly. */
   .invoice-sheet {
+    width: auto !important;
+    max-width: none !important;
+    margin: 0 !important;
     font-size: 11pt;
   }
   .invoice-sheet,
@@ -254,4 +267,15 @@
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }
+}
+
+/* Scrollable tab strips fade at an edge that has more tabs past it. */
+.tabs-fade-right {
+  mask-image: linear-gradient(to right, #000 calc(100% - 2.5rem), transparent);
+}
+.tabs-fade-left {
+  mask-image: linear-gradient(to left, #000 calc(100% - 2.5rem), transparent);
+}
+.tabs-fade-both {
+  mask-image: linear-gradient(to right, transparent, #000 2.5rem, #000 calc(100% - 2.5rem), transparent);
 }

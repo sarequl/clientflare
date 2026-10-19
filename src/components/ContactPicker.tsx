@@ -4,7 +4,8 @@ import { Spinner } from './Button'
 import { IconUsers, IconX } from './icons'
 import { useDismiss } from './Popover'
 
-export type ContactRef = { id: string; name: string }
+/** `company` is filled when the contact came from a search, so callers can prefill a company field. */
+export type ContactRef = { id: string; name: string; company?: { id: string; name: string } | null }
 type Result = ContactRef & { email?: string | null }
 
 /** Async combobox over the workspace's contacts. Pass `id` so a Field label points at the input. */
@@ -36,7 +37,14 @@ export function ContactPicker({ id, value, onChange }: { id: string; value: Cont
       try {
         const rows = await searchContacts({ data: { q } })
         if (n === seq.current) {
-          setResults(rows.map((r) => ({ id: r.id, name: [r.firstName, r.lastName].filter(Boolean).join(' '), email: r.email })))
+          setResults(
+            rows.map((r) => ({
+              id: r.id,
+              name: [r.firstName, r.lastName].filter(Boolean).join(' '),
+              email: r.email,
+              company: r.companyId && r.companyName ? { id: r.companyId, name: r.companyName } : null,
+            })),
+          )
           setActive(0)
         }
       } catch {
@@ -64,7 +72,7 @@ export function ContactPicker({ id, value, onChange }: { id: string; value: Cont
       if (!open) return
       e.preventDefault()
       const r = results[active]
-      if (r) select({ id: r.id, name: r.name })
+      if (r) select({ id: r.id, name: r.name, company: r.company })
     } else if (e.key === 'Escape' && open) {
       e.preventDefault()
       e.stopPropagation()
@@ -131,7 +139,7 @@ export function ContactPicker({ id, value, onChange }: { id: string; value: Cont
                 aria-selected={value?.id === c.id}
                 onMouseEnter={() => setActive(i)}
                 onMouseDown={(e) => e.preventDefault()}
-                onClick={() => select({ id: c.id, name: c.name })}
+                onClick={() => select({ id: c.id, name: c.name, company: c.company })}
                 className={`flex h-8 cursor-pointer items-center rounded px-2 text-sm ${i === active ? 'bg-surface-2' : ''} ${
                   value?.id === c.id ? 'font-medium' : ''
                 }`}

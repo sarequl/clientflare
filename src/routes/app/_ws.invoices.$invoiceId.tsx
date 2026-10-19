@@ -13,7 +13,7 @@ import {
 import { listSetAsides } from '#/features/finance/server'
 import { computeTotals } from '#/lib/invoice-math'
 import { formatMoney, parseMoney } from '#/lib/money'
-import { errorMessage, formatDay, formatPercentBp, minorToInput, todayISO } from '#/lib/format'
+import { errorMessage, formatDay, formatLongDay, formatPercentBp, minorToInput, todayISO } from '#/lib/format'
 import { Card, CardHeader, Notice } from '#/components/Card'
 import { Button, IconButton, buttonClass } from '#/components/Button'
 import { Checkbox, CurrencySelect, Field, Input, Textarea } from '#/components/Field'
@@ -295,13 +295,15 @@ function DraftEditor({ invoice, onFlash }: { invoice: Invoice; onFlash: (f: Flas
   const removeLine = (key: string) => change((d) => ({ ...d, lines: d.lines.length > 1 ? d.lines.filter((l) => l.key !== key) : [{ key: lineKey(), description: '', qty: '1', unit: '' }] }))
   const addLine = () => {
     change((d) => ({ ...d, lines: [...d.lines, { key: lineKey(), description: '', qty: '1', unit: '' }] }))
-    requestAnimationFrame(() => document.querySelector<HTMLInputElement>('[data-last-line] [data-line-desc]')?.focus())
+    requestAnimationFrame(() => document.querySelector<HTMLTextAreaElement>('[data-last-line] [data-line-desc]')?.focus())
   }
 
   /** Keep the bill-to block in step with the pickers until the user writes their own. */
   function pick(next: { contact?: ContactRef | null; company?: CompanyRef | null }) {
     change((d) => {
       const merged = { ...d, ...next }
+      // Picking a contact fills an empty company with theirs.
+      if (next.contact?.company && !d.company) merged.company = { id: next.contact.company.id, name: next.contact.company.name }
       const isAuto = autoBillTo.current !== null && d.billTo.trim() === autoBillTo.current
       if (isAuto || !d.billTo.trim()) {
         const auto = [merged.contact?.name, merged.company?.name].filter(Boolean).join('\n')
@@ -490,14 +492,17 @@ function DraftEditor({ invoice, onFlash }: { invoice: Invoice; onFlash: (f: Flas
                   <label htmlFor={`${l.key}-desc`} className="sr-only">
                     Line {i + 1} description
                   </label>
-                  <Input
+                  {/* Grows with its text (field-sizing) so long descriptions stay readable; one line when short. */}
+                  <Textarea
                     id={`${l.key}-desc`}
                     data-line-desc
+                    rows={1}
                     placeholder="What you did or sold"
                     value={l.description}
                     onChange={(e) => setLine(l.key, { description: e.target.value })}
                     maxLength={500}
                     aria-invalid={!!err(`${l.key}-desc`)}
+                    className="!min-h-9 resize-none !py-[7px] [field-sizing:content]"
                   />
                   {err(`${l.key}-desc`) && <p className="mt-1 text-[12px] text-danger">{err(`${l.key}-desc`)}</p>}
                 </div>
@@ -795,16 +800,16 @@ function IssuedView({ invoice, business, rules, onFlash }: { invoice: Invoice; b
             <CardHeader title="Payment" />
             <dl className="grid grid-cols-[6rem_minmax(0,1fr)] gap-x-3 gap-y-2 p-4 text-sm">
               <dt className="text-fg-muted">Issued</dt>
-              <dd className="tnum">{formatDay(invoice.issuedOn)}</dd>
+              <dd className="tnum">{formatLongDay(invoice.issuedOn)}</dd>
               <dt className="text-fg-muted">Due</dt>
               <dd className={`tnum ${overdue ? 'font-medium text-danger' : ''}`}>
-                {invoice.dueOn ? formatDay(invoice.dueOn) : '—'}
+                {invoice.dueOn ? formatLongDay(invoice.dueOn) : '—'}
                 {overdue && ' · overdue'}
               </dd>
               {invoice.status === 'paid' && (
                 <>
                   <dt className="text-fg-muted">Paid</dt>
-                  <dd className="tnum font-medium text-accent">{invoice.paidOn ? formatDay(invoice.paidOn) : '—'}</dd>
+                  <dd className="tnum font-medium text-accent">{invoice.paidOn ? formatLongDay(invoice.paidOn) : '—'}</dd>
                   <dt className="text-fg-muted">Income</dt>
                   <dd>
                     {invoice.incomeId && invoice.paidOn ? (

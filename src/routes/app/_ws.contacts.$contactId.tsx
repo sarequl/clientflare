@@ -5,6 +5,7 @@ import { listActivities } from '#/features/activities/server'
 import { listFields } from '#/features/custom-fields/server'
 import { listTags, setRecordTags } from '#/features/tags/server'
 import { listMembers } from '#/features/workspaces/server'
+import { listDeals } from '#/features/deals/server'
 import { errorMessage } from '#/lib/format'
 import { Card, CardHeader, Notice } from '#/components/Card'
 import { Button } from '#/components/Button'
@@ -15,22 +16,24 @@ import { Timeline } from '#/components/Timeline'
 import { PortalAccessCard } from '#/components/PortalAccessCard'
 import { ContactForm, fullName } from '#/components/ContactForm'
 import { formatFieldValue } from '#/components/CustomFieldInputs'
-import { DetailList, RecordHeader } from '#/components/RecordDetail'
+import { Breakable, DetailList, RecordHeader } from '#/components/RecordDetail'
+import { DealsPanel } from '#/components/DealsPanel'
 import { TasksPanel } from '#/components/TasksPanel'
 import { FilesPanel } from '#/components/FilesPanel'
 import { IconBuilding, IconChevronLeft, IconPencil, IconTrash } from '#/components/icons'
 
 export const Route = createFileRoute('/app/_ws/contacts/$contactId')({
   loader: async ({ params }) => {
-    const [contact, activities, fields, tags, members] = await Promise.all([
+    const [contact, activities, fields, tags, members, deals] = await Promise.all([
       getContact({ data: { id: params.contactId } }),
       listActivities({ data: { targetType: 'contact', targetId: params.contactId } }),
       listFields({ data: { recordType: 'contact' } }),
       listTags(),
       listMembers(),
+      listDeals({ data: { contactId: params.contactId } }),
     ])
     if (!contact) throw notFound()
-    return { contact, activities, fields, tags, members: members.members.map((m) => ({ userId: m.userId, name: m.name })) }
+    return { contact, activities, fields, tags, deals, members: members.members.map((m) => ({ userId: m.userId, name: m.name })) }
   },
   head: ({ loaderData }) => ({ meta: [{ title: `${loaderData ? fullName(loaderData.contact) : 'Contact'} · Clientflare` }] }),
   component: ContactPage,
@@ -47,7 +50,7 @@ const FIELD_LABELS: Record<string, string> = {
 }
 
 function ContactPage() {
-  const { contact, activities, fields, tags, members } = Route.useLoaderData()
+  const { contact, activities, fields, tags, members, deals } = Route.useLoaderData()
   const router = useRouter()
   const navigate = useNavigate()
   const [editing, setEditing] = useState(false)
@@ -139,17 +142,10 @@ function ContactPage() {
       <div className="grid items-start gap-4 lg:grid-cols-[19rem_minmax(0,1fr)]">
         <div className="flex min-w-0 flex-col gap-4">
           <Card>
-            <CardHeader
-              title="Details"
-              actions={
-                <Button size="sm" variant="ghost" onClick={() => setEditing(true)}>
-                  Edit
-                </Button>
-              }
-            />
+            <CardHeader title="Details" />
             <DetailList
               items={[
-                { label: 'Email', value: contact.email && <a href={`mailto:${contact.email}`} className="text-accent hover:underline">{contact.email}</a> },
+                { label: 'Email', value: contact.email && <a href={`mailto:${contact.email}`} className="text-accent hover:underline"><Breakable text={contact.email} /></a> },
                 { label: 'Phone', value: contact.phone && <a href={`tel:${contact.phone}`} className="hover:underline tnum">{contact.phone}</a> },
                 { label: 'Job title', value: contact.jobTitle },
                 {
@@ -167,6 +163,7 @@ function ContactPage() {
             />
           </Card>
           <TasksPanel contactId={contact.id} />
+          {deals.total > 0 && <DealsPanel deals={deals.rows} total={deals.total} />}
           <FilesPanel recordType="contact" recordId={contact.id} />
           <PortalAccessCard contactId={contact.id} email={contact.email} />
         </div>

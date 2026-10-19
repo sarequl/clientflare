@@ -23,7 +23,7 @@ export function FieldSettings({ fields }: { fields: Record<RecordKind, CustomFie
   const [recordType, setRecordType] = useState<RecordKind>('contact')
 
   return (
-    <div className="flex max-w-2xl flex-col gap-4">
+    <div className="flex flex-col gap-4">
       <div role="tablist" aria-label="Record type" className="inline-flex w-fit rounded-md border border-border bg-surface-2 p-0.5">
         {(['contact', 'company'] as const).map((t) => (
           <button

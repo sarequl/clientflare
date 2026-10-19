@@ -8,7 +8,7 @@ import { Field, Input, Switch } from '#/components/Field'
 import { ConfirmDialog, Modal, ModalActions } from '#/components/Modal'
 import { Money } from '#/components/Money'
 import { EmptyState } from '#/components/EmptyState'
-import { IconPencil, IconPiggy, IconPlus, IconTrash } from '#/components/icons'
+import { IconPencil, IconPiggy, IconPlus, IconSend, IconTrash } from '#/components/icons'
 
 export const Route = createFileRoute('/app/_ws/finance/set-asides')({
   loader: async () => ({ rules: await listSetAsides() }),
@@ -143,8 +143,8 @@ function SetAsidesPage() {
                   </table>
                 )}
                 <div className="px-4 pt-1 pb-3">
-                  <Link to="/app/finance/payouts" search={{ ruleId: r.id }} className={buttonClass('ghost', 'sm', '-ml-2.5')}>
-                    Record a payout
+                  <Link to="/app/finance/payouts" search={{ ruleId: r.id }} className={buttonClass('secondary', 'sm')}>
+                    <IconSend size={14} /> Record a payout
                   </Link>
                 </div>
               </Card>

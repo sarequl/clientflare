@@ -6,7 +6,7 @@ import { getBoard, listDeals, moveDeal } from '#/features/deals/server'
 import { listTags } from '#/features/tags/server'
 import { listFields } from '#/features/custom-fields/server'
 import { listMembers } from '#/features/workspaces/server'
-import { errorMessage, formatDay } from '#/lib/format'
+import { errorMessage, formatDay, formatDayAt } from '#/lib/format'
 import { formatMoney } from '#/lib/money'
 import { Card, Notice, PageHeader } from '#/components/Card'
 import { Button, buttonClass } from '#/components/Button'
@@ -285,7 +285,14 @@ function Board({ board }: { board: BoardData }) {
       <p className="sr-only" aria-live="polite">
         {announce}
       </p>
-      <div className="-mx-4 snap-x snap-mandatory scroll-px-4 overflow-x-auto px-4 pb-3 sm:-mx-6 sm:snap-none sm:scroll-px-6 sm:px-6">
+      {/*
+        Full bleed: the scroller spans the whole content area (sidebar edge to viewport edge) while
+        its padding keeps the first column in line with the page header. (100cqw - 100%) / 2 is the
+        gap between the page column and the content area's edge, on either side. Snapping only
+        runs below sm, where that gap is the 16px page gutter, hence the fixed scroll-px-4
+        (a % scroll-padding would resolve against the scroller, not the page column).
+      */}
+      <div className="mx-[calc((100%-100cqw)/2)] snap-x snap-mandatory scroll-px-4 overflow-x-auto px-[calc((100cqw-100%)/2)] pb-3 sm:snap-none">
         <div className="flex w-max gap-3">
           {stages.map((stage) => {
             const target = drop && drop.stageId === stage.id ? drop : null
@@ -586,7 +593,7 @@ function CardMenu({ label, items }: { label: string; items: MenuEntry[] }) {
 function DealsTable({ list, filtered, onNew }: { list: TableData; filtered: boolean; onNew: () => void }) {
   const app = useApp()
   const navigate = useNavigate({ from: Route.fullPath })
-  const updatedFmt = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', timeZone: app.workspace.timezone })
+
   return (
     <Card>
       {list.rows.length === 0 ? (
@@ -633,7 +640,7 @@ function DealsTable({ list, filtered, onNew }: { list: TableData; filtered: bool
                 {list.rows.map((d) => (
                   <tr key={d.id} className="hover:bg-surface-2/60">
                     <td className="max-w-56 px-4 py-2.5">
-                      <Link to="/app/deals/$dealId" params={{ dealId: d.id }} className="font-medium hover:underline">
+                      <Link to="/app/deals/$dealId" params={{ dealId: d.id }} title={d.title} className="line-clamp-2 font-medium hover:underline">
                         {d.title}
                       </Link>
                     </td>
@@ -643,7 +650,7 @@ function DealsTable({ list, filtered, onNew }: { list: TableData; filtered: bool
                     <td className="px-3 py-2.5 text-right">
                       <Money minor={d.valueMinor} currency={d.currency} />
                     </td>
-                    <td className="max-w-40 truncate px-3 py-2.5">
+                    <td className="max-w-40 truncate px-3 py-2.5" title={d.contactName ?? undefined}>
                       {d.contactId && d.contactName ? (
                         <Link to="/app/contacts/$contactId" params={{ contactId: d.contactId }} className="text-fg-muted hover:text-fg hover:underline">
                           {d.contactName}
@@ -652,7 +659,7 @@ function DealsTable({ list, filtered, onNew }: { list: TableData; filtered: bool
                         <span className="text-fg-subtle">—</span>
                       )}
                     </td>
-                    <td className="max-w-40 truncate px-3 py-2.5">
+                    <td className="max-w-40 truncate px-3 py-2.5" title={d.companyName ?? undefined}>
                       {d.companyId && d.companyName ? (
                         <Link to="/app/companies/$companyId" params={{ companyId: d.companyId }} className="text-fg-muted hover:text-fg hover:underline">
                           {d.companyName}
@@ -668,7 +675,7 @@ function DealsTable({ list, filtered, onNew }: { list: TableData; filtered: bool
                         <span className="max-w-28 truncate text-fg-muted">{d.ownerName ?? '—'}</span>
                       </span>
                     </td>
-                    <td className="px-4 py-2.5 whitespace-nowrap text-fg-muted tnum">{updatedFmt.format(new Date(d.updatedAt))}</td>
+                    <td className="px-4 py-2.5 whitespace-nowrap text-fg-muted tnum">{formatDayAt(d.updatedAt, app.workspace.timezone)}</td>
                   </tr>
                 ))}
               </tbody>

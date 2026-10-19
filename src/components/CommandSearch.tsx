@@ -5,7 +5,8 @@ import { globalSearch } from '#/features/search/server'
 import { formatMoney } from '#/lib/money'
 import { Spinner } from './Button'
 import { IconBuilding, IconSearch, IconUsers } from './icons'
-import { IconBriefcase, IconInvoice } from './icons-invoice'
+import { IconBriefcase, IconCheckSquare, IconInvoice } from './icons-invoice'
+import { formatDay } from '#/lib/format'
 
 type Results = Awaited<ReturnType<typeof globalSearch>>
 type Item = { key: string; href: string; title: string; subtitle?: string | null; meta?: ReactNode }
@@ -40,11 +41,28 @@ function toGroups(r: Results): Group[] {
         meta: formatMoney(i.totalMinor, i.currency),
       })),
     },
+    {
+      label: 'Tasks',
+      Icon: IconCheckSquare,
+      // Tasks have no page of their own: open the record they belong to, else the task list.
+      items: r.tasks.map((t) => ({
+        key: `t-${t.id}`,
+        href: t.dealId
+          ? `/app/deals/${t.dealId}`
+          : t.contactId
+            ? `/app/contacts/${t.contactId}`
+            : t.companyId
+              ? `/app/companies/${t.companyId}`
+              : `/app/tasks?view=${t.status === 'done' ? 'done' : 'all'}`,
+        title: t.title,
+        subtitle: [t.status === 'done' ? 'Done' : 'Open', t.dueOn ? `due ${formatDay(t.dueOn)}` : null].filter(Boolean).join(' · '),
+      })),
+    },
   ]
   return groups.filter((g) => g.items.length)
 }
 
-/** ⌘K palette over contacts, companies, deals and invoices. */
+/** ⌘K palette over contacts, companies, deals, invoices and tasks. */
 export function CommandSearch({ open, onClose }: { open: boolean; onClose: () => void }) {
   const navigate = useNavigate()
   const [mounted, setMounted] = useState(false)
@@ -148,8 +166,8 @@ export function CommandSearch({ open, onClose }: { open: boolean; onClose: () =>
             aria-controls={listId}
             aria-autocomplete="list"
             aria-activedescendant={flat.length ? optionId(active) : undefined}
-            aria-label="Search contacts, companies, deals and invoices"
-            placeholder="Search contacts, companies, deals, invoices"
+            aria-label="Search contacts, companies, deals, invoices and tasks"
+            placeholder="Search contacts, deals, invoices, tasks…"
             autoComplete="off"
             spellCheck={false}
             value={q}
@@ -187,7 +205,7 @@ export function CommandSearch({ open, onClose }: { open: boolean; onClose: () =>
                       <g.Icon size={15} className="shrink-0 text-fg-subtle" />
                       <span className="min-w-0 flex-1">
                         <span className="block truncate text-sm font-medium">{item.title}</span>
-                        {item.subtitle && <span className="block truncate text-[12px] text-fg-muted">{item.subtitle}</span>}
+                        {item.subtitle && <span className="block truncate text-[12px] text-fg-muted" title={item.subtitle}>{item.subtitle}</span>}
                       </span>
                       {item.meta && <span className="shrink-0 text-[12px] text-fg-muted tnum">{item.meta}</span>}
                     </div>

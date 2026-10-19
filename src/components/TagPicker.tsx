@@ -4,7 +4,7 @@ import { errorMessage } from '#/lib/format'
 import { Spinner } from './Button'
 import { IconCheck, IconPlus, IconTag } from './icons'
 import { popoverPanel, useDismiss } from './Popover'
-import { TagDot, type TagLike } from './TagChip'
+import { TagDot, suggestTagColor, type TagLike } from './TagChip'
 
 type Option = { kind: 'tag'; tag: TagLike } | { kind: 'create'; name: string }
 
@@ -26,7 +26,7 @@ export function TagPicker({
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
   const [active, setActive] = useState(0)
-  const [color, setColor] = useState<(typeof TAG_COLORS)[number]>('blue')
+  const [color, setColor] = useState<(typeof TAG_COLORS)[number]>(() => suggestTagColor(tags))
   const [pending, setPending] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const root = useRef<HTMLDivElement>(null)
@@ -37,6 +37,7 @@ export function TagPicker({
 
   useEffect(() => {
     if (open) {
+      setColor(suggestTagColor(tags))
       setQuery('')
       setActive(0)
       setError(null)

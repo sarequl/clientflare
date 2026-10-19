@@ -7,7 +7,7 @@ import { Card, CardHeader, Notice } from './Card'
 import { EmptyState } from './EmptyState'
 import { Field, Input } from './Field'
 import { ConfirmDialog, Modal, ModalActions } from './Modal'
-import { TagChip, type TagLike } from './TagChip'
+import { TagChip, suggestTagColor, type TagLike } from './TagChip'
 import { ColorSwatches } from './TagPicker'
 import { IconPencil, IconTag, IconTrash } from './icons'
 import { canManage, useApp } from './useApp'
@@ -19,7 +19,7 @@ export function TagSettings({ tags }: { tags: TagLike[] }) {
   const router = useRouter()
   const manage = canManage(app.role)
   const [name, setName] = useState('')
-  const [color, setColor] = useState<Color>('blue')
+  const [color, setColor] = useState<Color>(() => suggestTagColor(tags))
   const [pending, setPending] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [editing, setEditing] = useState<TagLike | null>(null)
@@ -39,6 +39,7 @@ export function TagSettings({ tags }: { tags: TagLike[] }) {
       await createTag({ data: { name: name.trim(), color } })
       await router.invalidate()
       setName('')
+      setColor(suggestTagColor([...tags, { color }]))
     } catch (err) {
       setError(tagError(err))
     } finally {
@@ -62,7 +63,7 @@ export function TagSettings({ tags }: { tags: TagLike[] }) {
   }
 
   return (
-    <div className="flex max-w-2xl flex-col gap-4">
+    <div className="flex flex-col gap-4">
       {manage && (
         <Card>
           <CardHeader title="New tag" description="Tags group contacts and companies. Anyone can also create one from a record." />

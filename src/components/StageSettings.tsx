@@ -173,7 +173,7 @@ function StageRow({
           ))}
         </Select>
       </div>
-      <label className="flex items-center gap-1 text-[13px] text-fg-muted">
+      <label className="relative flex items-center text-[13px]">
         <Input
           aria-label="Win probability (percent)"
           inputMode="numeric"
@@ -182,9 +182,9 @@ function StageRow({
           onChange={(e) => setProb(e.target.value)}
           onBlur={commitProb}
           onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), commitProb())}
-          className="h-8 w-14 text-right text-[13px] tnum"
+          className="h-8 w-16 pr-6 text-right text-[13px] tnum"
         />
-        %
+        <span aria-hidden className="pointer-events-none absolute right-2.5 text-fg-subtle">%</span>
       </label>
       {editable && (
         <div className="ml-auto flex items-center">
@@ -268,7 +268,10 @@ function AddStage({ onAdd, pending }: { onAdd: (data: { name: string; kind: Kind
           </Select>
         </Field>
         <Field label="Probability" htmlFor="ns-prob">
-          <Input id="ns-prob" inputMode="numeric" value={prob} onChange={(e) => setProb(e.target.value)} className="tnum" />
+          <div className="relative">
+            <Input id="ns-prob" inputMode="numeric" value={prob} onChange={(e) => setProb(e.target.value)} className="pr-8 tnum" />
+            <span aria-hidden className="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 text-fg-subtle">%</span>
+          </div>
         </Field>
       </div>
       <div className="flex flex-wrap items-center justify-between gap-2">

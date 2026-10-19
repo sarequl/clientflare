@@ -1,4 +1,5 @@
 import type { HTMLAttributes, ReactNode } from 'react'
+import { IconX } from './icons'
 
 export function Card({ className = '', ...rest }: HTMLAttributes<HTMLDivElement>) {
   return <div className={`rounded-lg border border-border bg-surface ${className}`} {...rest} />
@@ -6,12 +7,13 @@ export function Card({ className = '', ...rest }: HTMLAttributes<HTMLDivElement>
 
 export function CardHeader({ title, description, actions }: { title: ReactNode; description?: ReactNode; actions?: ReactNode }) {
   return (
-    <div className="flex flex-wrap items-start justify-between gap-3 border-b border-border px-4 py-3">
-      <div className="min-w-0">
-        <h2 className="text-sm font-semibold">{title}</h2>
+    <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-3">
+      <div className="min-w-0 flex-1">
+        <h2 className="text-sm leading-5 font-semibold">{title}</h2>
         {description && <p className="mt-0.5 text-[13px] text-fg-muted">{description}</p>}
       </div>
-      {actions && <div className="flex shrink-0 items-center gap-2">{actions}</div>}
+      {/* Negative margin so a 32px button doesn't make a title-only header taller than the rest. */}
+      {actions && <div className="-my-1.5 flex shrink-0 items-center gap-2">{actions}</div>}
     </div>
   )
 }
@@ -49,8 +51,8 @@ export function Notice({ tone = 'neutral', children, onDismiss }: { tone?: Tone;
     <div role={tone === 'danger' ? 'alert' : 'status'} className={`flex items-start gap-3 rounded-md border px-3 py-2.5 text-sm ${tones[tone]}`}>
       <div className="min-w-0 flex-1">{children}</div>
       {onDismiss && (
-        <button type="button" onClick={onDismiss} className="-my-0.5 rounded px-1 text-[13px] opacity-75 hover:opacity-100" aria-label="Dismiss">
-          ✕
+        <button type="button" onClick={onDismiss} className="-my-0.5 grid size-5 shrink-0 place-items-center rounded opacity-75 hover:opacity-100" aria-label="Dismiss">
+          <IconX size={14} />
         </button>
       )}
     </div>

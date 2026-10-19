@@ -9,7 +9,7 @@ import { MonthPicker } from '#/components/MonthPicker'
 import { Money } from '#/components/Money'
 import { EmptyState } from '#/components/EmptyState'
 import { buttonClass } from '#/components/Button'
-import { IconArrowDown, IconArrowUp, IconBolt, IconPiggy, IconUsers } from '#/components/icons'
+import { IconArrowDown, IconArrowUp, IconPiggy, IconUsers } from '#/components/icons'
 import { IconBriefcase, IconCheckSquare, IconInvoice } from '#/components/icons-invoice'
 import { useApp } from '#/components/useApp'
 
@@ -53,22 +53,23 @@ function Dashboard() {
     <>
       <PageHeader
         title={firstName ? `Hi, ${firstName}` : 'Dashboard'}
-        description={`${app.workspace.name} · ${monthLabel(month)}`}
+        description={app.workspace.name}
         actions={<MonthPicker month={month} onChange={(m) => navigate({ search: { month: m } })} />}
       />
 
-      <div className="mb-6 grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
-        <Link to="/app/finance/incomes" search={{ month, add: true }} className={buttonClass('secondary', 'md')}>
-          <IconArrowDown /> Add income
+      {/* Quick add lives in the sidebar (and the phone header), so it isn't repeated here. */}
+      <div className="mb-6 grid grid-cols-3 gap-2 sm:flex sm:flex-wrap">
+        <Link to="/app/finance/incomes" search={{ month, add: true }} className={buttonClass('secondary', 'md', 'px-2 sm:px-3.5')}>
+          <IconArrowDown /> <span className="sm:hidden">Income</span>
+          <span className="hidden sm:inline">Add income</span>
         </Link>
-        <Link to="/app/finance/expenses" search={{ month, add: true }} className={buttonClass('secondary', 'md')}>
-          <IconArrowUp /> Add expense
+        <Link to="/app/finance/expenses" search={{ month, add: true }} className={buttonClass('secondary', 'md', 'px-2 sm:px-3.5')}>
+          <IconArrowUp /> <span className="sm:hidden">Expense</span>
+          <span className="hidden sm:inline">Add expense</span>
         </Link>
-        <Link to="/app/contacts" search={{ new: true }} className={buttonClass('secondary', 'md')}>
-          <IconUsers /> New contact
-        </Link>
-        <Link to="/app/quick" className={buttonClass('primary', 'md')}>
-          <IconBolt /> Quick add
+        <Link to="/app/contacts" search={{ new: true }} className={buttonClass('secondary', 'md', 'px-2 sm:px-3.5')}>
+          <IconUsers /> <span className="sm:hidden">Contact</span>
+          <span className="hidden sm:inline">New contact</span>
         </Link>
       </div>
 
@@ -81,36 +82,39 @@ function Dashboard() {
             />
           </Card>
         ) : (
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          // One full-width card per currency, the three figures side by side, so a single
+          // currency fills the row instead of leaving two thirds of it empty.
+          <div className="flex flex-col gap-3">
             {currencies.map((c) => {
               const inc = incomeBy[c]
               const exp = expenseBy[c]
               const net = (inc?.total ?? 0) - (exp?.total ?? 0)
+              const entries = (inc?.count ?? 0) + (exp?.count ?? 0)
               return (
-                <Card key={c} className="p-4">
-                  <div className="mb-3 flex items-center justify-between">
-                    <span className="text-[12px] font-semibold tracking-wide text-fg-subtle">{c}</span>
+                <Card key={c}>
+                  <div className="flex items-center justify-between border-b border-border px-4 py-2">
+                    <span className="text-[12px] font-semibold tracking-wide text-fg-muted">{c}</span>
                     <span className="text-[12px] text-fg-subtle">
-                      {(inc?.count ?? 0) + (exp?.count ?? 0)} entries
+                      {entries} {entries === 1 ? 'entry' : 'entries'}
                     </span>
                   </div>
-                  <dl className="grid gap-2 text-sm">
-                    <div className="flex items-baseline justify-between gap-3">
-                      <dt className="text-fg-muted">Income</dt>
-                      <dd><Money minor={inc?.total ?? 0} currency={c} className="font-medium" /></dd>
+                  <dl className="grid grid-cols-3 divide-x divide-border">
+                    <div className="min-w-0 px-4 py-3">
+                      <dt className="text-[12px] text-fg-muted">Income</dt>
+                      <dd className="truncate"><Money minor={inc?.total ?? 0} currency={c} className="text-base font-semibold sm:text-lg" /></dd>
                     </div>
-                    <div className="flex items-baseline justify-between gap-3">
-                      <dt className="text-fg-muted">Expenses</dt>
-                      <dd><Money minor={exp?.total ?? 0} currency={c} /></dd>
+                    <div className="min-w-0 px-4 py-3">
+                      <dt className="text-[12px] text-fg-muted">Expenses</dt>
+                      <dd className="truncate"><Money minor={exp?.total ?? 0} currency={c} className="text-base font-semibold sm:text-lg" /></dd>
                     </div>
-                    <div className="flex items-baseline justify-between gap-3 border-t border-border pt-2">
-                      <dt className="font-medium">Net</dt>
-                      <dd>
+                    <div className="min-w-0 px-4 py-3">
+                      <dt className="text-[12px] text-fg-muted">Net</dt>
+                      <dd className="truncate">
                         <Money
                           minor={Math.abs(net)}
                           currency={c}
                           sign={net < 0 ? '-' : undefined}
-                          className={`text-base font-semibold ${net < 0 ? 'text-danger' : ''}`}
+                          className={`text-base font-semibold sm:text-lg ${net < 0 ? 'text-danger' : 'text-accent'}`}
                         />
                       </dd>
                     </div>
@@ -134,7 +138,7 @@ function Dashboard() {
           description="Your personal buckets across all workspaces. Only you see these."
           actions={
             <Link to="/app/finance/set-asides" className={buttonClass('ghost', 'sm')}>
-              Manage
+              View all
             </Link>
           }
         />
@@ -192,6 +196,7 @@ function InvoicesCard({ stats }: { stats: Awaited<ReturnType<typeof getInvoiceSt
     <Card className="flex flex-col">
       <CardHeader
         title="Invoices"
+        description="What clients owe you."
         actions={
           <Link to="/app/invoices" className={buttonClass('ghost', 'sm')}>
             View all
@@ -239,10 +244,10 @@ function PipelineCard({ pipeline }: { pipeline: Awaited<ReturnType<typeof getPip
     <Card className="flex flex-col">
       <CardHeader
         title="Pipeline"
-        description="Open deal value by stage."
+        description="Open value by stage."
         actions={
           <Link to="/app/deals" className={buttonClass('ghost', 'sm')}>
-            Deals
+            View all
           </Link>
         }
       />
@@ -280,6 +285,7 @@ function TasksCard({ tasks }: { tasks: Awaited<ReturnType<typeof getTaskCounts>>
     <Card className="flex flex-col">
       <CardHeader
         title="Tasks"
+        description="Follow-ups and to-dos."
         actions={
           <Link to="/app/tasks" className={buttonClass('ghost', 'sm')}>
             View all
@@ -287,17 +293,17 @@ function TasksCard({ tasks }: { tasks: Awaited<ReturnType<typeof getTaskCounts>>
         }
       />
       <dl className="grid flex-1 grid-cols-3 gap-2 p-4 text-center">
-        <div className="rounded-md bg-surface-2 px-2 py-3">
-          <dt className="text-[12px] text-fg-muted">Overdue</dt>
-          <dd className={`text-lg font-semibold tnum ${tasks.overdue ? 'text-danger' : ''}`}>{tasks.overdue}</dd>
+        <div className="flex flex-col items-center justify-center rounded-md bg-surface-2 px-2 py-3">
+          <dt className="order-last text-[12px] text-fg-muted">Overdue</dt>
+          <dd className={`text-2xl font-semibold tnum ${tasks.overdue ? 'text-danger' : ''}`}>{tasks.overdue}</dd>
         </div>
-        <div className="rounded-md bg-surface-2 px-2 py-3">
-          <dt className="text-[12px] text-fg-muted">Due today</dt>
-          <dd className="text-lg font-semibold tnum">{tasks.dueToday}</dd>
+        <div className="flex flex-col items-center justify-center rounded-md bg-surface-2 px-2 py-3">
+          <dt className="order-last text-[12px] text-fg-muted">Due today</dt>
+          <dd className="text-2xl font-semibold tnum">{tasks.dueToday}</dd>
         </div>
-        <div className="rounded-md bg-surface-2 px-2 py-3">
-          <dt className="text-[12px] text-fg-muted">Open</dt>
-          <dd className="text-lg font-semibold tnum">{tasks.open}</dd>
+        <div className="flex flex-col items-center justify-center rounded-md bg-surface-2 px-2 py-3">
+          <dt className="order-last text-[12px] text-fg-muted">Open</dt>
+          <dd className="text-2xl font-semibold tnum">{tasks.open}</dd>
         </div>
       </dl>
       {tasks.open === 0 && (

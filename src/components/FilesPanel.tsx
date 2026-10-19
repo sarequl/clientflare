@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useRef, useState, type DragEvent } from 'react'
 import { deleteFile, listFiles, setFileShared } from '#/features/files/server'
-import { errorMessage } from '#/lib/format'
-import { IconButton, Button, Spinner } from './Button'
+import { errorMessage, formatDayAt } from '#/lib/format'
+import { IconButton, Button, Spinner, useSlowLoading } from './Button'
 import { Card, CardHeader, Notice } from './Card'
 import { ConfirmDialog } from './Modal'
 import { IconDownload, IconTrash, IconUpload, IconX } from './icons'
-import { IconExternal, IconFile, IconLock, IconUnlock } from './icons2'
+import { IconFile, IconLock, IconUnlock } from './icons2'
 import { useApp } from './useApp'
 
 export type FileRecordType = 'contact' | 'company' | 'deal' | 'invoice'
@@ -52,6 +52,7 @@ function uploadFile(file: File, recordType: FileRecordType, recordId: string, on
 export function FilesPanel({ recordType, recordId }: { recordType: FileRecordType; recordId: string }) {
   const app = useApp()
   const [files, setFiles] = useState<FileRow[] | null>(null)
+  const slow = useSlowLoading(files === null)
   const [uploads, setUploads] = useState<Upload[]>([])
   const [over, setOver] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -134,7 +135,6 @@ export function FilesPanel({ recordType, recordId }: { recordType: FileRecordTyp
     }
   }
 
-  const dateFmt = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: app.workspace.timezone })
 
   return (
     <Card>
@@ -233,52 +233,44 @@ export function FilesPanel({ recordType, recordId }: { recordType: FileRecordTyp
       )}
 
       {files === null ? (
-        <p className="flex items-center gap-2 border-t border-border px-4 py-4 text-[13px] text-fg-muted">
-          <Spinner /> Loading
+        <p className="flex h-[53px] items-center gap-2 border-t border-border px-4 text-[13px] text-fg-muted" aria-busy>
+          {slow && (
+            <>
+              <Spinner /> Loading
+            </>
+          )}
         </p>
       ) : files.length === 0 ? (
         uploads.length === 0 && <p className="border-t border-border px-4 py-4 text-[13px] text-fg-subtle">No files yet.</p>
       ) : (
         <ul className="divide-y divide-border border-t border-border">
           {files.map((f) => (
-            <li key={f.id} className="flex items-center gap-2 py-2 pr-2 pl-4">
-              <IconFile className="shrink-0 text-fg-subtle" />
-              <div className="min-w-0 flex-1">
-                <a href={`/api/files/${f.id}`} target="_blank" rel="noreferrer" className="block truncate text-sm font-medium hover:underline" title={f.name}>
-                  {f.name}
+            <li key={f.id} className="flex items-start gap-2 py-2 pr-2 pl-4">
+              <IconFile className="mt-1.5 shrink-0 text-fg-subtle" />
+              <div className="min-w-0 flex-1 pt-0.5">
+                {/* The name opens the file; download and delete sit on the right. */}
+                <a href={`/api/files/${f.id}`} target="_blank" rel="noreferrer" className="flex min-w-0 text-sm font-medium hover:underline" title={f.name}>
+                  <FileName name={f.name} />
                 </a>
-                <p className="truncate text-[12px] text-fg-muted">
-                  <span className="tnum">{formatBytes(f.size)}</span>
-                  {' · '}
-                  {f.uploadedBy?.name ?? 'Someone'}
-                  {' · '}
-                  <span className="tnum">{dateFmt.format(new Date(f.createdAt))}</span>
-                </p>
+                <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[12px] text-fg-muted">
+                  <span className="tnum" title={`Uploaded by ${f.uploadedBy?.name ?? 'someone'}`}>
+                    {formatBytes(f.size)} · {formatDayAt(f.createdAt, app.workspace.timezone)}
+                  </span>
+                  <button
+                    type="button"
+                    aria-pressed={f.sharedToPortal}
+                    disabled={sharing === f.id}
+                    onClick={() => toggleShare(f)}
+                    title={f.sharedToPortal ? 'Shared to portal. Click to make private.' : 'Private. Click to share to the client portal.'}
+                    className={`inline-flex h-5 items-center gap-1 rounded px-1.5 text-[12px] font-medium transition-colors disabled:opacity-60 ${
+                      f.sharedToPortal ? 'bg-accent-soft text-accent-soft-fg' : 'bg-surface-2 text-fg-muted hover:text-fg'
+                    }`}
+                  >
+                    {f.sharedToPortal ? <IconUnlock size={12} /> : <IconLock size={12} />}
+                    {f.sharedToPortal ? 'Shared' : 'Private'}
+                  </button>
+                </div>
               </div>
-              <button
-                type="button"
-                aria-pressed={f.sharedToPortal}
-                disabled={sharing === f.id}
-                onClick={() => toggleShare(f)}
-                title={f.sharedToPortal ? 'Shared to portal. Click to make private.' : 'Private. Click to share to the client portal.'}
-                className={`inline-flex h-7 shrink-0 items-center gap-1 rounded-md border px-1.5 text-[12px] font-medium transition-colors disabled:opacity-60 ${
-                  f.sharedToPortal ? 'border-transparent bg-accent-soft text-accent-soft-fg' : 'border-border text-fg-muted hover:border-border-strong hover:text-fg'
-                }`}
-              >
-                {f.sharedToPortal ? <IconUnlock size={13} /> : <IconLock size={13} />}
-                <span className="hidden sm:inline">{f.sharedToPortal ? 'Shared' : 'Private'}</span>
-                <span className="sr-only sm:hidden">{f.sharedToPortal ? 'Shared to portal' : 'Private'}</span>
-              </button>
-              <a
-                href={`/api/files/${f.id}`}
-                target="_blank"
-                rel="noreferrer"
-                aria-label={`Open ${f.name}`}
-                title="Open"
-                className="hidden size-8 shrink-0 place-items-center rounded-md text-fg-muted hover:bg-surface-2 hover:text-fg sm:grid"
-              >
-                <IconExternal size={15} />
-              </a>
               <a
                 href={`/api/files/${f.id}?download=1`}
                 download={f.name}
@@ -311,5 +303,19 @@ export function FilesPanel({ recordType, recordId }: { recordType: FileRecordTyp
         body={deleting?.sharedToPortal ? 'It is also removed from the client portal. This cannot be undone.' : 'This cannot be undone.'}
       />
     </Card>
+  )
+}
+
+/** Truncates the middle of a file name so the extension stays visible: "scope-of-wo….pdf". */
+function FileName({ name }: { name: string }) {
+  const dot = name.lastIndexOf('.')
+  const hasExt = dot > 0 && name.length - dot <= 8
+  const base = hasExt ? name.slice(0, dot) : name
+  const ext = hasExt ? name.slice(dot) : ''
+  return (
+    <>
+      <span className="min-w-0 truncate">{base}</span>
+      {ext && <span className="shrink-0">{ext}</span>}
+    </>
   )
 }

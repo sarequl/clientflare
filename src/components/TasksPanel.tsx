@@ -3,7 +3,7 @@ import { Link, useRouter } from '@tanstack/react-router'
 import { createTask, listTasks, setTaskDone } from '#/features/tasks/server'
 import { errorMessage } from '#/lib/format'
 import { Avatar } from './Avatar'
-import { Button, Spinner } from './Button'
+import { Button, Spinner, buttonClass, useSlowLoading } from './Button'
 import { Card, CardHeader, Notice } from './Card'
 import { Input } from './Field'
 import { IconPlus } from './icons'
@@ -22,6 +22,7 @@ export function TasksPanel(target: Target) {
   const [adding, setAdding] = useState(false)
   const [completing, setCompleting] = useState<Set<string>>(new Set())
   const [error, setError] = useState<string | null>(null)
+  const slow = useSlowLoading(rows === null)
 
   const load = useCallback(async () => {
     const res = await listTasks({ data: { view: 'all', dealId: target.dealId, contactId: target.contactId, companyId: target.companyId } })
@@ -75,14 +76,14 @@ export function TasksPanel(target: Target) {
         title="Tasks"
         description={rows ? (rows.length ? `${rows.length} open` : 'Nothing open') : undefined}
         actions={
-          <Link to="/app/tasks" search={{ view: 'all' }} className="text-[13px] text-fg-muted hover:text-fg hover:underline">
-            All tasks
+          <Link to="/app/tasks" search={{ view: 'all' }} className={buttonClass('ghost', 'sm')}>
+            View all
           </Link>
         }
       />
-      <form onSubmit={onAdd} className="flex flex-wrap gap-2 border-b border-border p-3" noValidate>
-        <Input aria-label="New task" placeholder="Add a task" value={title} onChange={(e) => setTitle(e.target.value)} maxLength={200} className="h-8 min-w-40 flex-1 text-[13px]" />
-        <Input aria-label="Due date" type="date" value={dueOn} onChange={(e) => setDueOn(e.target.value)} className="h-8 w-auto text-[13px]" />
+      <form onSubmit={onAdd} className="grid grid-cols-[minmax(0,1fr)_auto] gap-2 border-b border-border p-3" noValidate>
+        <Input aria-label="New task" placeholder="Add a task" value={title} onChange={(e) => setTitle(e.target.value)} maxLength={200} className="col-span-2 h-8 text-[13px]" />
+        <Input aria-label="Due date" type="date" value={dueOn} onChange={(e) => setDueOn(e.target.value)} className="h-8 w-full min-w-0 text-[13px]" />
         <Button type="submit" size="sm" icon={<IconPlus />} pending={adding} disabled={!title.trim()}>
           Add
         </Button>
@@ -95,8 +96,12 @@ export function TasksPanel(target: Target) {
         </div>
       )}
       {rows === null ? (
-        <p className="flex items-center gap-2 px-4 py-4 text-[13px] text-fg-muted">
-          <Spinner /> Loading
+        <p className="flex h-[53px] items-center gap-2 px-4 text-[13px] text-fg-muted" aria-busy>
+          {slow && (
+            <>
+              <Spinner /> Loading
+            </>
+          )}
         </p>
       ) : rows.length === 0 ? (
         <p className="px-4 py-4 text-[13px] text-fg-subtle">No open tasks.</p>

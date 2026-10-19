@@ -1,5 +1,5 @@
 import type { listFields } from '#/features/custom-fields/server'
-import { formatDay } from '#/lib/format'
+import { formatLongDay } from '#/lib/format'
 import { Field, Input, Select } from './Field'
 
 export type CustomField = Awaited<ReturnType<typeof listFields>>[number]
@@ -56,6 +56,6 @@ export function toFieldValuesPayload(fields: CustomField[], values: FieldValues,
 
 export function formatFieldValue(field: CustomField, value: string | undefined) {
   if (!value) return null
-  if (field.kind === 'date' && /^\d{4}-\d{2}-\d{2}$/.test(value)) return formatDay(value)
+  if (field.kind === 'date' && /^\d{4}-\d{2}-\d{2}$/.test(value)) return formatLongDay(value)
   return value
 }

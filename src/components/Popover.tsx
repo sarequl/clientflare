@@ -37,7 +37,18 @@ export type MenuItem =
   | { label: string; icon?: ReactNode; link: LinkProps }
 
 /** Icon-button overflow menu with arrow-key navigation. */
-export function OverflowMenu({ items, label = 'More actions', align = 'right' }: { items: MenuItem[]; label?: string; align?: 'left' | 'right' }) {
+/** `quiet` drops the border for per-row menus, where a box on every row is too heavy. */
+export function OverflowMenu({
+  items,
+  label = 'More actions',
+  align = 'right',
+  quiet = false,
+}: {
+  items: MenuItem[]
+  label?: string
+  align?: 'left' | 'right'
+  quiet?: boolean
+}) {
   const [open, setOpen] = useState(false)
   const root = useRef<HTMLDivElement>(null)
   const trigger = useRef<HTMLButtonElement>(null)
@@ -67,7 +78,9 @@ export function OverflowMenu({ items, label = 'More actions', align = 'right' }:
         aria-label={label}
         title={label}
         onClick={() => setOpen((o) => !o)}
-        className="grid size-9 place-items-center rounded-md border border-border-strong bg-surface text-fg-muted hover:bg-surface-2 hover:text-fg"
+        className={`grid place-items-center rounded-md text-fg-muted hover:bg-surface-2 hover:text-fg aria-expanded:bg-surface-2 ${
+          quiet ? 'size-8' : 'size-9 border border-border-strong bg-surface'
+        }`}
       >
         <IconDots />
       </button>

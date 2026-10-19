@@ -112,7 +112,8 @@ function PayoutsPage() {
                   </div>
                   {p.note && <p className="mt-0.5 line-clamp-2 text-[13px] text-fg-muted">{p.note}</p>}
                 </div>
-                <div className="-mr-1.5 shrink-0">
+                {/* Same width as the edit + delete pair on incomes/expenses so amounts line up across pages. */}
+                <div className="-mr-1.5 flex w-[66px] shrink-0 items-start justify-end">
                   <IconButton
                     aria-label="Delete payout"
                     onClick={() => {

@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { minorDigits } from '#/lib/money'
+import { todayIn } from '#/lib/dates'
 
 export const COMMON_CURRENCIES = [
   'USD', 'EUR', 'GBP', 'CAD', 'AUD', 'NZD', 'CHF', 'JPY', 'CNY', 'HKD', 'SGD', 'INR', 'BDT', 'PKR', 'LKR',
@@ -28,17 +29,64 @@ export function monthLabel(month: string): string {
   return new Intl.DateTimeFormat('en-US', { month: 'long', year: 'numeric', timeZone: 'UTC' }).format(new Date(Date.UTC(y!, m! - 1, 1)))
 }
 
-/** "2026-10-03" → "Oct 3" (or "Oct 3, 2025" when not this year). */
-export function formatDay(iso: string): string {
+/*
+ * Date display. Three shapes, used everywhere:
+ *   lists and meta lines  formatDay       "Oct 3"  ("Oct 3, 2025" when not this year)
+ *   detail pages, papers  formatLongDay   "October 3, 2026"
+ *   timelines             formatDateTime  "Oct 3, 2:15 PM" (year added when not this year)
+ * Stored days are YYYY-MM-DD; stored timestamps go through dayOf() first so the
+ * day is the workspace's, not the browser's or UTC's.
+ */
+
+function utcDate(iso: string): Date {
   const [y, m, d] = iso.split('-').map(Number)
-  const date = new Date(Date.UTC(y!, m! - 1, d!))
-  const sameYear = y === new Date().getFullYear()
+  return new Date(Date.UTC(y!, m! - 1, d!))
+}
+
+/** "2026-10-03" → "Oct 3" (or "Oct 3, 2025" when not this year). */
+export function formatDay(iso: string, now: Date = new Date()): string {
+  const sameYear = Number(iso.slice(0, 4)) === now.getFullYear()
   return new Intl.DateTimeFormat('en-US', {
     month: 'short',
     day: 'numeric',
     year: sameYear ? undefined : 'numeric',
     timeZone: 'UTC',
-  }).format(date)
+  }).format(utcDate(iso))
+}
+
+/** "2026-10-03" → "October 3, 2026". Detail pages and invoices. */
+export function formatLongDay(iso: string): string {
+  return new Intl.DateTimeFormat('en-US', { month: 'long', day: 'numeric', year: 'numeric', timeZone: 'UTC' }).format(utcDate(iso))
+}
+
+/** A timestamp's calendar day (YYYY-MM-DD) in a timezone; the runtime's own zone when none is given. */
+export function dayOf(at: Date | string | number, timezone?: string): string {
+  const d = at instanceof Date ? at : new Date(at)
+  if (timezone) return todayIn(timezone, d)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+/** Timestamp → list-style day, e.g. a file's upload date. */
+export function formatDayAt(at: Date | string | number, timezone?: string): string {
+  return formatDay(dayOf(at, timezone))
+}
+
+/** Timestamp → "Oct 3, 2:15 PM" (year added when not this year). */
+export function formatDateTime(at: Date | string | number, timezone?: string, now: Date = new Date()): string {
+  const d = at instanceof Date ? at : new Date(at)
+  const sameYear = dayOf(d, timezone).slice(0, 4) === String(now.getFullYear())
+  try {
+    return new Intl.DateTimeFormat('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: sameYear ? undefined : 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+      timeZone: timezone,
+    }).format(d)
+  } catch {
+    return new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: sameYear ? undefined : 'numeric', hour: 'numeric', minute: '2-digit' }).format(d)
+  }
 }
 
 export function formatPercentBp(bp: number): string {

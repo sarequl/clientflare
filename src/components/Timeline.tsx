@@ -2,7 +2,7 @@ import { useState, type ComponentType, type FormEvent } from 'react'
 import { useRouter } from '@tanstack/react-router'
 import { ShareNoteToggle } from './ShareNoteToggle'
 import { addActivity, deleteActivity, type listActivities } from '#/features/activities/server'
-import { errorMessage } from '#/lib/format'
+import { errorMessage, formatDateTime } from '#/lib/format'
 import { Button, IconButton } from './Button'
 import { Card, CardHeader, Notice } from './Card'
 import { EmptyState } from './EmptyState'
@@ -46,14 +46,6 @@ export function Timeline({
   const [deletePending, setDeletePending] = useState(false)
   const [deleteError, setDeleteError] = useState<string | null>(null)
 
-  const fmt = new Intl.DateTimeFormat('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-    timeZone: app.workspace.timezone,
-  })
 
   async function confirmDelete() {
     if (!deleting) return
@@ -88,7 +80,7 @@ export function Timeline({
             const manual = (MANUAL as string[]).includes(a.kind)
             const who = a.user?.name ?? 'Someone'
             return (
-              <li key={a.id} className="flex gap-3 px-4 py-3">
+              <li key={a.id} className="flex flex-wrap gap-x-3 px-4 py-3 sm:flex-nowrap">
                 <span
                   className={`mt-0.5 grid size-7 shrink-0 place-items-center rounded-full ${
                     manual ? 'bg-accent-soft text-accent-soft-fg' : 'bg-surface-2 text-fg-subtle'
@@ -102,7 +94,7 @@ export function Timeline({
                     {manual && <span>by {who}</span>}
                     {a.kind === 'created' && <span>created this record</span>}
                     <time dateTime={new Date(a.occurredAt).toISOString()} className="text-fg-subtle tnum">
-                      {fmt.format(new Date(a.occurredAt))}
+                      {formatDateTime(a.occurredAt, app.workspace.timezone)}
                     </time>
                   </p>
                   {a.kind === 'updated' && a.meta ? (
@@ -134,7 +126,12 @@ export function Timeline({
                     a.body && <p className="mt-0.5 text-sm whitespace-pre-wrap">{a.body}</p>
                   )}
                 </div>
-                {a.kind === 'note' && targetType !== 'deal' && <ShareNoteToggle activityId={a.id} shared={a.sharedToPortal} />}
+                {a.kind === 'note' && targetType !== 'deal' && (
+                  // Below the note on phones so the text keeps the full width; beside it from sm up.
+                  <div className="order-last mt-1.5 basis-full pl-10 sm:order-none sm:mt-0 sm:shrink-0 sm:basis-auto sm:pl-0">
+                    <ShareNoteToggle activityId={a.id} shared={a.sharedToPortal} />
+                  </div>
+                )}
                 {manual && (
                   <IconButton
                     aria-label={`Delete ${label.toLowerCase()}`}

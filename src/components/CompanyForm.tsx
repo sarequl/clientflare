@@ -90,7 +90,7 @@ export function CompanyForm({
         <Field label="Website" htmlFor="co-website">
           <Input id="co-website" type="url" inputMode="url" value={website} onChange={(e) => setWebsite(e.target.value)} maxLength={200} placeholder="https://" />
         </Field>
-        <Field label="Phone" htmlFor="co-phone">
+        <Field label="Phone" htmlFor="co-phone" className={members ? undefined : 'sm:col-span-2'}>
           <Input id="co-phone" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} maxLength={40} />
         </Field>
         {members && (

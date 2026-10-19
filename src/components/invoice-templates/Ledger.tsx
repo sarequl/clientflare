@@ -14,7 +14,7 @@ export function LedgerTemplate({ invoice, business, accent }: InvoiceTemplatePro
       style={accentStyle(accent)}
       className="invoice-sheet relative mx-auto w-full max-w-[210mm] overflow-hidden rounded-md bg-white px-4 py-6 text-[12px] leading-snug text-neutral-800 shadow-pop sm:px-10 sm:py-10 print:max-w-none print:rounded-none print:p-0 print:shadow-none"
     >
-      <header className="relative flex flex-col-reverse gap-4 border-b-2 border-(--inv-accent) pb-3 sm:flex-row sm:items-end sm:justify-between">
+      <header className="relative flex flex-col gap-4 border-b-2 border-(--inv-accent) pb-3 sm:flex-row sm:items-end sm:justify-between">
         <div className="min-w-0">
           <p className="font-serif text-lg leading-tight font-semibold text-neutral-950 [overflow-wrap:anywhere]">{business.name || 'Your business'}</p>
           <div className="mt-1 text-[11px] text-neutral-600">

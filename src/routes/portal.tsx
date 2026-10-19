@@ -18,7 +18,8 @@ function PortalShell() {
   return (
     <div className="min-h-dvh">
       <header className="sticky top-0 z-20 border-b border-border bg-surface/90 pt-[env(safe-area-inset-top)] backdrop-blur">
-        <div className="mx-auto flex h-14 max-w-3xl items-center justify-between gap-3 px-4">
+        {/* Signed out there's no business to name yet, so the label centres over the sign-in card. */}
+        <div className={`mx-auto flex h-14 max-w-3xl items-center gap-3 px-4 ${portal ? 'justify-between' : 'justify-center'}`}>
           <div className="min-w-0">
             <p className="truncate text-sm font-semibold">{portal?.business.name || 'Client portal'}</p>
             {portal && <p className="truncate text-[12px] text-fg-muted">Client portal</p>}
@@ -27,7 +28,7 @@ function PortalShell() {
             <form method="post" action="/api/portal/logout">
               <button
                 type="submit"
-                className="inline-flex h-9 items-center gap-1.5 rounded-md px-2.5 text-[13px] text-fg-muted hover:bg-surface-2 hover:text-fg"
+                className="-mr-2.5 inline-flex h-9 items-center gap-1.5 rounded-md px-2.5 text-[13px] text-fg-muted hover:bg-surface-2 hover:text-fg"
               >
                 <IconLogout size={15} /> Sign out
               </button>

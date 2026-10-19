@@ -179,12 +179,12 @@ function ContactsPage() {
                 {list.rows.map((c) => (
                   <tr key={c.id} className="hover:bg-surface-2/60">
                     <td className="max-w-56 px-4 py-2.5">
-                      <Link to="/app/contacts/$contactId" params={{ contactId: c.id }} className="font-medium hover:underline">
+                      <Link to="/app/contacts/$contactId" params={{ contactId: c.id }} className="block truncate font-medium hover:underline" title={fullName(c)}>
                         {fullName(c)}
                       </Link>
-                      {c.jobTitle && <p className="truncate text-[12px] text-fg-muted">{c.jobTitle}</p>}
+                      {c.jobTitle && <p className="truncate text-[12px] text-fg-muted" title={c.jobTitle}>{c.jobTitle}</p>}
                     </td>
-                    <td className="max-w-44 truncate px-3 py-2.5">
+                    <td className="max-w-44 truncate px-3 py-2.5" title={c.companyName ?? undefined}>
                       {c.companyId && c.companyName ? (
                         <Link to="/app/companies/$companyId" params={{ companyId: c.companyId }} className="text-fg-muted hover:text-fg hover:underline">
                           {c.companyName}
@@ -193,7 +193,7 @@ function ContactsPage() {
                         <span className="text-fg-subtle">—</span>
                       )}
                     </td>
-                    <td className="max-w-52 truncate px-3 py-2.5 text-fg-muted">{c.email || <span className="text-fg-subtle">—</span>}</td>
+                    <td className="max-w-52 truncate px-3 py-2.5 text-fg-muted" title={c.email ?? undefined}>{c.email || <span className="text-fg-subtle">—</span>}</td>
                     <td className="px-3 py-2.5 whitespace-nowrap text-fg-muted tnum">{c.phone || <span className="text-fg-subtle">—</span>}</td>
                     <td className="px-4 py-2.5">
                       <TagList tags={c.tags} max={3} />

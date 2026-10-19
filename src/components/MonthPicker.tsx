@@ -11,7 +11,7 @@ export function MonthPicker({ month, onChange }: { month: string; onChange: (mon
         <button type="button" className={btn} onClick={() => onChange(shiftMonth(month, -1))} aria-label="Previous month">
           <IconChevronLeft />
         </button>
-        <span className="min-w-[8.5rem] px-1 text-center text-sm font-medium tnum" aria-live="polite">
+        <span className="w-[9.5rem] px-1 text-center whitespace-nowrap text-sm font-medium tnum" aria-live="polite">
           {monthLabel(month)}
         </span>
         <button type="button" className={btn} onClick={() => onChange(shiftMonth(month, 1))} aria-label="Next month">

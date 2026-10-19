@@ -3,6 +3,7 @@ import { HeadContent, Scripts, createRootRoute } from '@tanstack/react-router'
 import { TanStackRouterDevtoolsPanel } from '@tanstack/react-router-devtools'
 import { TanStackDevtools } from '@tanstack/react-devtools'
 
+import { NotFoundScreen, RootError } from '#/components/ErrorScreen'
 import appCss from '../styles.css?url'
 
 const THEME_INIT_SCRIPT = `(function(){try{var s=localStorage.getItem('theme');var m=(s==='light'||s==='dark')?s:'auto';var d=m==='dark'||(m==='auto'&&matchMedia('(prefers-color-scheme: dark)').matches);var r=document.documentElement;r.classList.remove('light','dark');r.classList.add(d?'dark':'light');r.style.colorScheme=d?'dark':'light';}catch(e){}})();`
@@ -26,19 +27,9 @@ export const Route = createRootRoute({
     ],
   }),
   shellComponent: RootDocument,
-  notFoundComponent: NotFound,
+  notFoundComponent: () => <NotFoundScreen />,
+  errorComponent: RootError,
 })
-
-function NotFound() {
-  return (
-    <main className="flex min-h-[60dvh] flex-col items-center justify-center gap-2 px-4 text-center">
-      <p className="text-sm font-medium">Page not found</p>
-      <a href="/app" className="text-sm text-accent hover:underline">
-        Go to dashboard
-      </a>
-    </main>
-  )
-}
 
 function RootDocument({ children }: { children: ReactNode }) {
   return (

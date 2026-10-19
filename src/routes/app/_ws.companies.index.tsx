@@ -171,21 +171,21 @@ function CompaniesPage() {
                   <th scope="col" className="px-4 py-2 font-medium">Name</th>
                   <th scope="col" className="px-3 py-2 font-medium">Domain</th>
                   <th scope="col" className="px-3 py-2 font-medium">Phone</th>
-                  <th scope="col" className="px-3 py-2 text-right font-medium">Contacts</th>
+                  <th scope="col" className="px-3 py-2 font-medium">Contacts</th>
                   <th scope="col" className="px-4 py-2 font-medium">Tags</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
                 {list.rows.map((c) => (
                   <tr key={c.id} className="hover:bg-surface-2/60">
-                    <td className="max-w-60 truncate px-4 py-2.5">
+                    <td className="max-w-60 truncate px-4 py-2.5" title={c.name}>
                       <Link to="/app/companies/$companyId" params={{ companyId: c.id }} className="font-medium hover:underline">
                         {c.name}
                       </Link>
                     </td>
-                    <td className="max-w-48 truncate px-3 py-2.5 text-fg-muted">{c.domain || <span className="text-fg-subtle">—</span>}</td>
+                    <td className="max-w-48 truncate px-3 py-2.5 text-fg-muted" title={c.domain ?? undefined}>{c.domain || <span className="text-fg-subtle">—</span>}</td>
                     <td className="px-3 py-2.5 whitespace-nowrap text-fg-muted tnum">{c.phone || <span className="text-fg-subtle">—</span>}</td>
-                    <td className="px-3 py-2.5 text-right text-fg-muted tnum">{c.contactCount}</td>
+                    <td className="px-3 py-2.5 text-fg-muted tnum">{c.contactCount}</td>
                     <td className="px-4 py-2.5">
                       <TagList tags={c.tags} max={3} />
                     </td>
@@ -197,7 +197,7 @@ function CompaniesPage() {
               {list.rows.map((c) => (
                 <li key={c.id} className="relative px-4 py-3">
                   <div className="flex items-baseline justify-between gap-3">
-                    <Link to="/app/companies/$companyId" params={{ companyId: c.id }} className="min-w-0 truncate text-sm font-medium after:absolute after:inset-0">
+                    <Link to="/app/companies/$companyId" params={{ companyId: c.id }} title={c.name} className="min-w-0 flex-1 truncate text-sm font-medium after:absolute after:inset-0">
                       {c.name}
                     </Link>
                     <span className="shrink-0 text-[12px] text-fg-subtle tnum">

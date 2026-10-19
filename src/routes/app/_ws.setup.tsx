@@ -61,12 +61,12 @@ function SetupPage() {
   }
 
   return (
-    <div className="mx-auto flex max-w-2xl flex-col gap-5">
+    <div className="flex max-w-3xl flex-col gap-5">
       <PageHeader
         title={`Set up ${app.workspace.name}`}
         description="Three quick steps. Skip anything and come back to it from Settings."
         actions={
-          <Button variant="ghost" size="sm" onClick={skipAll} pending={finishing}>
+          <Button size="sm" onClick={skipAll} pending={finishing}>
             Skip setup
           </Button>
         }
@@ -365,6 +365,8 @@ function SetAsideStep({ rules, onBack, onNext }: { rules: Rule[]; onBack: () => 
           )}
 
           {rows.length > 0 && (
+            <div>
+            <p className="mb-1.5 text-[13px] font-medium">New buckets</p>
             <ul className="flex flex-col gap-3">
               {rows.map((r, i) => (
                 <li key={r.id} className="flex items-start gap-2">
@@ -393,10 +395,11 @@ function SetAsideStep({ rules, onBack, onNext }: { rules: Rule[]; onBack: () => 
                       <span className="pointer-events-none absolute top-1/2 right-2.5 -translate-y-1/2 text-sm text-fg-subtle">%</span>
                     </div>
                   </Field>
-                  <IconButton aria-label={`Remove ${r.name || 'row'}`} onClick={() => remove(r.id)} icon={<IconTrash />} className={i === 0 ? 'mt-7' : 'mt-2'} />
+                  <IconButton aria-label={`Remove ${r.name || 'row'}`} title="Remove" onClick={() => remove(r.id)} icon={<IconTrash />} className={i === 0 ? 'mt-7' : 'mt-0.5'} />
                 </li>
               ))}
             </ul>
+            </div>
           )}
 
           <div className="flex flex-wrap items-center justify-between gap-2">

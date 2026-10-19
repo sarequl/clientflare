@@ -5,6 +5,7 @@ import { listActivities } from '#/features/activities/server'
 import { listFields } from '#/features/custom-fields/server'
 import { listTags, setRecordTags } from '#/features/tags/server'
 import { listMembers } from '#/features/workspaces/server'
+import { listDeals } from '#/features/deals/server'
 import { errorMessage } from '#/lib/format'
 import { Card, CardHeader, Notice } from '#/components/Card'
 import { Button } from '#/components/Button'
@@ -16,23 +17,25 @@ import { Timeline } from '#/components/Timeline'
 import { CompanyForm } from '#/components/CompanyForm'
 import { ContactForm, fullName } from '#/components/ContactForm'
 import { formatFieldValue } from '#/components/CustomFieldInputs'
-import { DetailList, RecordHeader } from '#/components/RecordDetail'
+import { Breakable, DetailList, RecordHeader } from '#/components/RecordDetail'
+import { DealsPanel } from '#/components/DealsPanel'
 import { TasksPanel } from '#/components/TasksPanel'
 import { FilesPanel } from '#/components/FilesPanel'
 import { IconChevronLeft, IconPencil, IconPlus, IconTrash, IconUsers } from '#/components/icons'
 
 export const Route = createFileRoute('/app/_ws/companies/$companyId')({
   loader: async ({ params }) => {
-    const [company, activities, fields, contactFields, tags, members] = await Promise.all([
+    const [company, activities, fields, contactFields, tags, members, deals] = await Promise.all([
       getCompany({ data: { id: params.companyId } }),
       listActivities({ data: { targetType: 'company', targetId: params.companyId } }),
       listFields({ data: { recordType: 'company' } }),
       listFields({ data: { recordType: 'contact' } }),
       listTags(),
       listMembers(),
+      listDeals({ data: { companyId: params.companyId } }),
     ])
     if (!company) throw notFound()
-    return { company, activities, fields, contactFields, tags, members: members.members.map((m) => ({ userId: m.userId, name: m.name })) }
+    return { company, activities, fields, contactFields, tags, deals, members: members.members.map((m) => ({ userId: m.userId, name: m.name })) }
   },
   head: ({ loaderData }) => ({ meta: [{ title: `${loaderData?.company.name ?? 'Company'} · Clientflare` }] }),
   component: CompanyPage,
@@ -52,7 +55,7 @@ function websiteHref(url: string) {
 }
 
 function CompanyPage() {
-  const { company, activities, fields, contactFields, tags, members } = Route.useLoaderData()
+  const { company, activities, fields, contactFields, tags, members, deals } = Route.useLoaderData()
   const router = useRouter()
   const navigate = useNavigate()
   const [editing, setEditing] = useState(false)
@@ -132,14 +135,7 @@ function CompanyPage() {
       <div className="grid items-start gap-4 lg:grid-cols-[19rem_minmax(0,1fr)]">
         <div className="flex min-w-0 flex-col gap-4">
           <Card>
-            <CardHeader
-              title="Details"
-              actions={
-                <Button size="sm" variant="ghost" onClick={() => setEditing(true)}>
-                  Edit
-                </Button>
-              }
-            />
+            <CardHeader title="Details" />
             <DetailList
               items={[
                 { label: 'Domain', value: company.domain },
@@ -147,7 +143,7 @@ function CompanyPage() {
                   label: 'Website',
                   value: company.website && (
                     <a href={websiteHref(company.website)} target="_blank" rel="noreferrer noopener" className="text-accent hover:underline">
-                      {company.website.replace(/^https?:\/\//i, '')}
+                      <Breakable text={company.website.replace(/^https?:\/\//i, '')} />
                     </a>
                   ),
                 },
@@ -185,6 +181,7 @@ function CompanyPage() {
               </ul>
             )}
           </Card>
+          <DealsPanel deals={deals.rows} total={deals.total} />
           <TasksPanel companyId={company.id} />
           <FilesPanel recordType="company" recordId={company.id} />
         </div>

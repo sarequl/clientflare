@@ -12,6 +12,7 @@ import { OverflowMenu } from '#/components/Popover'
 import { Avatar } from '#/components/Avatar'
 import { DueLabel, TaskForm, TaskLinkChip, type TaskRow } from '#/components/TaskForm'
 import { useApp } from '#/components/useApp'
+import { StableLabel } from '#/components/Tabs'
 import { IconPencil, IconPlus, IconTrash } from '#/components/icons'
 import { IconCheckSquare } from '#/components/icons2'
 
@@ -122,7 +123,7 @@ function TasksPage() {
                   active ? 'bg-surface font-medium text-fg shadow-sm' : 'text-fg-muted hover:text-fg'
                 }`}
               >
-                {label}
+                <StableLabel>{label}</StableLabel>
                 {!!n && (
                   <span className={`rounded px-1 text-[11px] tnum ${v === 'today' && counts.overdue ? 'bg-danger-soft text-danger-soft-fg' : 'bg-surface-3 text-fg-muted'}`}>{n}</span>
                 )}
@@ -184,6 +185,7 @@ function TasksPage() {
                       </div>
                       <Avatar name={t.assigneeName} className="mt-0.5" />
                       <OverflowMenu
+                        quiet
                         label={`Actions for ${t.title}`}
                         items={[
                           { label: 'Edit', icon: <IconPencil />, onSelect: () => setEditing(t) },
@@ -268,11 +270,15 @@ function QuickAdd({ assignees, defaultDue }: { assignees: { id: string; name: st
 
   return (
     <form onSubmit={onSubmit} className="mb-3" noValidate>
-      <Card className="flex flex-col gap-2 p-2 sm:flex-row sm:items-center">
+      {/* Phones: title + Add on one row, date and assignee share the next. From sm up it's one row. */}
+      <Card className="grid grid-cols-[minmax(0,1fr)_auto] gap-2 p-2 sm:flex sm:items-center">
         <Input id="task-quick-title" aria-label="New task" placeholder="Add a task, e.g. Send proposal to Acme" value={title} onChange={(e) => setTitle(e.target.value)} maxLength={200} className="sm:flex-1" />
-        <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] gap-2 sm:flex">
-          <Input aria-label="Due date" type="date" value={dueOn} onChange={(e) => setDueOn(e.target.value)} className="sm:w-40" />
-          <Select aria-label="Assignee" value={assignee} onChange={(e) => setAssignee(e.target.value)} className="sm:w-40">
+        <Button type="submit" variant="primary" icon={<IconPlus />} pending={pending} className="sm:order-last">
+          Add
+        </Button>
+        <div className="col-span-2 grid grid-cols-2 gap-2 sm:contents">
+          <Input aria-label="Due date" type="date" value={dueOn} onChange={(e) => setDueOn(e.target.value)} className="min-w-0 sm:w-40" />
+          <Select aria-label="Assignee" value={assignee} onChange={(e) => setAssignee(e.target.value)} className="min-w-0 sm:w-40">
             <option value="">Nobody</option>
             {assignees.map((a) => (
               <option key={a.id} value={a.id}>
@@ -280,9 +286,6 @@ function QuickAdd({ assignees, defaultDue }: { assignees: { id: string; name: st
               </option>
             ))}
           </Select>
-          <Button type="submit" variant="primary" icon={<IconPlus />} pending={pending}>
-            Add
-          </Button>
         </div>
       </Card>
       {error && (

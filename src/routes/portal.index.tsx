@@ -1,12 +1,12 @@
 import { createFileRoute, redirect } from '@tanstack/react-router'
-import { formatDay } from '#/lib/format'
+import { formatDay, formatDayAt } from '#/lib/format'
 import { Card, CardHeader } from '#/components/Card'
-import { EmptyState } from '#/components/EmptyState'
+
 import { Money } from '#/components/Money'
 import { InvoiceStatusBadge } from '#/components/InvoiceStatusBadge'
 import { buttonClass } from '#/components/Button'
-import { IconDownload, IconNote } from '#/components/icons'
-import { IconFile, IconInvoice } from '#/components/icons-invoice'
+import { IconDownload } from '#/components/icons'
+import { IconFile } from '#/components/icons-invoice'
 
 export const Route = createFileRoute('/portal/')({
   loader: ({ context }) => {
@@ -23,7 +23,6 @@ function formatSize(bytes: number) {
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`
 }
 
-const noteDate = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 
 function PortalHome() {
   const { contact, invoices, files, notes, business } = Route.useLoaderData()
@@ -56,7 +55,7 @@ function PortalHome() {
       <Card>
         <CardHeader title="Invoices" />
         {invoices.length === 0 ? (
-          <EmptyState icon={<IconInvoice size={18} />} title="No invoices yet" body={`Invoices from ${business.name || 'us'} will appear here.`} />
+          <p className="px-4 py-4 text-[13px] text-fg-muted">No invoices yet. Invoices from {business.name || 'us'} will appear here.</p>
         ) : (
           <ul className="divide-y divide-border">
             {invoices.map((inv) => (
@@ -90,7 +89,7 @@ function PortalHome() {
       <Card>
         <CardHeader title="Files" />
         {files.length === 0 ? (
-          <EmptyState icon={<IconFile size={18} />} title="No shared files" body="Documents shared with you will show up here." />
+          <p className="px-4 py-4 text-[13px] text-fg-muted">No shared files yet. Documents shared with you will show up here.</p>
         ) : (
           <ul className="divide-y divide-border">
             {files.map((f) => (
@@ -99,7 +98,7 @@ function PortalHome() {
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-medium">{f.name}</p>
                   <p className="text-[12px] text-fg-muted tnum">
-                    {formatSize(f.size)} · {noteDate.format(new Date(f.createdAt))}
+                    {formatSize(f.size)} · {formatDayAt(f.createdAt)}
                   </p>
                 </div>
                 <a href={`/api/files/${f.id}?download=1`} className={buttonClass('secondary', 'sm')} aria-label={`Download ${f.name}`}>
@@ -114,13 +113,13 @@ function PortalHome() {
       <Card>
         <CardHeader title="Notes" />
         {notes.length === 0 ? (
-          <EmptyState icon={<IconNote size={18} />} title="No notes yet" body="Updates shared with you will appear here." />
+          <p className="px-4 py-4 text-[13px] text-fg-muted">No notes yet. Updates shared with you will appear here.</p>
         ) : (
           <ul className="divide-y divide-border">
             {notes.map((n) => (
               <li key={n.id} className="px-4 py-3">
                 <p className="text-[12px] text-fg-muted">
-                  {n.author ?? business.name} · {noteDate.format(new Date(n.occurredAt))}
+                  {n.author ?? business.name} · {formatDayAt(n.occurredAt)}
                 </p>
                 <p className="mt-1 text-sm whitespace-pre-wrap">{n.body}</p>
               </li>

@@ -1,4 +1,4 @@
-import type { ButtonHTMLAttributes, ReactNode } from 'react'
+import { useEffect, useState, type ButtonHTMLAttributes, type ReactNode } from 'react'
 
 export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger'
 export type ButtonSize = 'sm' | 'md' | 'lg'
@@ -34,6 +34,20 @@ export function Spinner({ className = '' }: { className?: string }) {
       className={`inline-block size-3.5 shrink-0 rounded-full border-2 border-current border-r-transparent anim-spin ${className}`}
     />
   )
+}
+
+/** True once `loading` has stayed true for `ms`, so quick loads never flash a spinner. */
+export function useSlowLoading(loading: boolean, ms = 400) {
+  const [slow, setSlow] = useState(false)
+  useEffect(() => {
+    if (!loading) {
+      setSlow(false)
+      return
+    }
+    const t = setTimeout(() => setSlow(true), ms)
+    return () => clearTimeout(t)
+  }, [loading, ms])
+  return slow
 }
 
 type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {

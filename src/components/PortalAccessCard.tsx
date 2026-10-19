@@ -1,17 +1,19 @@
 import { useCallback, useEffect, useState } from 'react'
 import { disablePortal, getPortalAccess, invitePortal } from '#/features/portal/server'
-import { errorMessage } from '#/lib/format'
+import { errorMessage, formatDateTime } from '#/lib/format'
+import { Breakable } from './RecordDetail'
 import { Badge, Card, CardHeader, Notice } from './Card'
 import { Button, Spinner } from './Button'
 import { ConfirmDialog } from './Modal'
 import { IconMail } from './icons'
+import { useApp } from './useApp'
 
 type Access = Awaited<ReturnType<typeof getPortalAccess>>
 
-const seen = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' })
 
 /** Client portal controls for one contact. Drop it into the contact detail sidebar. */
 export function PortalAccessCard({ contactId, email }: { contactId: string; email: string | null | undefined }) {
+  const app = useApp()
   const [access, setAccess] = useState<Access | undefined>(undefined)
   const [pending, setPending] = useState<'invite' | 'disable' | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -78,9 +80,9 @@ export function PortalAccessCard({ contactId, email }: { contactId: string; emai
       <div className="flex flex-col gap-3 p-4 text-sm">
         {access && (
           <p className="text-[13px] text-fg-muted">
-            {enabled ? 'Signs in as' : 'Was invited as'} <span className="font-medium text-fg">{access.email}</span>
+            {enabled ? 'Signs in as' : 'Was invited as'} <span className="font-medium text-fg"><Breakable text={access.email} /></span>
             <br />
-            {access.lastSeenAt ? `Last visit ${seen.format(new Date(access.lastSeenAt))}` : 'Has not signed in yet'}
+            {access.lastSeenAt ? `Last visit ${formatDateTime(access.lastSeenAt, app.workspace.timezone)}` : 'Has not signed in yet'}
           </p>
         )}
         {!target && <p className="text-[13px] text-fg-muted">Add an email to this contact to invite them.</p>}

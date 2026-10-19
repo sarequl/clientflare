@@ -1,4 +1,22 @@
-import type { ReactNode } from 'react'
+import { Fragment, type ReactNode } from 'react'
+
+/**
+ * Text with soft break points after "@", ".", "-" and "/" so long emails and
+ * URLs wrap at a boundary instead of mid-word. The full value is in the title.
+ */
+export function Breakable({ text }: { text: string }) {
+  const parts = text.split(/(?<=[.\-/_])|(?=@)/)
+  return (
+    <span title={text}>
+      {parts.map((p, i) => (
+        <Fragment key={i}>
+          {i > 0 && <wbr />}
+          {p}
+        </Fragment>
+      ))}
+    </span>
+  )
+}
 
 /** Title block for contact and company pages. */
 export function RecordHeader({

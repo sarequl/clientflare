@@ -9,7 +9,7 @@ import {
   updatePersonalSettings,
   updateWorkspaceSettings,
 } from '#/features/workspaces/server'
-import { errorMessage, formatDay } from '#/lib/format'
+import { errorMessage, formatDayAt } from '#/lib/format'
 import { Badge, Card, CardHeader, Notice, PageHeader } from '#/components/Card'
 import { Button, buttonClass } from '#/components/Button'
 import { CurrencySelect, Field, Input, Select, Textarea } from '#/components/Field'
@@ -24,6 +24,7 @@ import { listTags } from '#/features/tags/server'
 import { listFields } from '#/features/custom-fields/server'
 import { getInvoiceSettings, updateInvoiceSettings } from '#/features/invoices/server'
 import { StageSettings } from '#/components/StageSettings'
+import { TabLink, Tabs } from '#/components/Tabs'
 import { parseTaxPercent } from '#/components/InvoiceStatusBadge'
 import { createApiToken, listApiTokens, revokeApiToken } from '#/features/api-tokens/server'
 import { IconCheck } from '#/components/icons'
@@ -73,24 +74,17 @@ function SettingsPage() {
   const { tab = 'workspace' } = Route.useSearch()
   const { members, tags, fields, invoicing, apiTokens } = Route.useLoaderData()
 
+  // One width for every tab, strip included, so switching tabs never shifts the layout.
   return (
-    <>
+    <div className="max-w-3xl">
       <PageHeader title="Settings" />
-      <nav aria-label="Settings sections" className="-mx-4 mb-5 flex gap-1 overflow-x-auto border-b border-border px-4 sm:mx-0 sm:px-0">
+      <Tabs label="Settings sections" className="mb-5">
         {TABS.map((t) => (
-          <Link
-            key={t}
-            from={Route.fullPath}
-            search={{ tab: t === 'workspace' ? undefined : t }}
-            aria-current={tab === t ? 'page' : undefined}
-            className={`-mb-px shrink-0 border-b-2 px-3 py-2 text-sm whitespace-nowrap transition-colors ${
-              tab === t ? 'border-accent font-medium text-fg' : 'border-transparent text-fg-muted hover:text-fg'
-            }`}
-          >
+          <TabLink key={t} from={Route.fullPath} search={{ tab: t === 'workspace' ? undefined : t }} active={tab === t}>
             {TAB_LABELS[t]}
-          </Link>
+          </TabLink>
         ))}
-      </nav>
+      </Tabs>
       {tab === 'workspace' && <WorkspaceTab />}
       {tab === 'members' && members && <MembersTab data={members} />}
       {tab === 'pipeline' && <StageSettings />}
@@ -99,7 +93,7 @@ function SettingsPage() {
       {tab === 'fields' && fields && <FieldSettings fields={fields} />}
       {tab === 'personal' && <PersonalTab />}
       {tab === 'api' && apiTokens && <ApiTab tokens={apiTokens} />}
-    </>
+    </div>
   )
 }
 
@@ -135,9 +129,9 @@ function WorkspaceTab() {
   }
 
   return (
-    <Card className="max-w-xl">
+    <Card>
       <CardHeader
-        title="Workspace"
+        title="General"
         description={editable ? 'Applies to everyone in this workspace.' : 'Only owners and admins can change these.'}
         actions={
           <Link to="/app/setup" className={buttonClass('ghost', 'sm')}>
@@ -241,7 +235,7 @@ function InvoicingTab({ settings }: { settings: InvoiceSettings }) {
   }
 
   return (
-    <form onSubmit={onSubmit} className="flex max-w-2xl flex-col gap-4" noValidate>
+    <form onSubmit={onSubmit} className="flex flex-col gap-4" noValidate>
       <Card>
         <CardHeader title="Business details" description="Printed at the top of every invoice." />
         <div className="grid gap-4 p-4 sm:grid-cols-2">
@@ -387,7 +381,7 @@ function TemplatePicker({
               value={swatch}
               onChange={(e) => onAccentText(e.target.value)}
               disabled={!editable}
-              className="h-9 w-11 shrink-0 cursor-pointer rounded-md border border-border-strong bg-surface p-1 disabled:cursor-default"
+              className="h-9 w-11 shrink-0 cursor-pointer rounded-md border border-border-strong bg-surface p-1 disabled:cursor-default [&::-moz-color-swatch]:rounded-sm [&::-moz-color-swatch]:border-fg-subtle [&::-webkit-color-swatch]:rounded-sm [&::-webkit-color-swatch]:border-fg-subtle [&::-webkit-color-swatch-wrapper]:p-0"
             />
             <Input
               id="inv-accent"
@@ -480,7 +474,7 @@ function MembersTab({ data }: { data: MembersData }) {
   }
 
   return (
-    <div className="flex max-w-2xl flex-col gap-4">
+    <div className="flex flex-col gap-4">
       {manage && (
         <Card>
           <CardHeader title="Invite someone" description="They get an email with a link to join this workspace." />
@@ -571,7 +565,7 @@ function MembersTab({ data }: { data: MembersData }) {
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-medium">{i.email}</p>
                   <p className="text-[13px] text-fg-muted">
-                    <span className="capitalize">{i.role}</span> · expires {formatDay(new Date(i.expiresAt).toISOString().slice(0, 10))}
+                    <span className="capitalize">{i.role}</span> · expires {formatDayAt(i.expiresAt, app.workspace.timezone)}
                   </p>
                 </div>
                 {manage && (
@@ -624,9 +618,9 @@ function PersonalTab() {
   }
 
   return (
-    <div className="flex max-w-xl flex-col gap-4">
+    <div className="flex flex-col gap-4">
       <Card>
-        <CardHeader title="Personal" description="Only affects you, in every workspace." />
+        <CardHeader title="Preferences" description="Only affects you, in every workspace." />
         <form onSubmit={onSubmit} className="flex flex-col gap-4 p-4" noValidate>
           <Field label="Personal currency" htmlFor="me-currency" hint="Default currency for payouts from your set-aside buckets.">
             <CurrencySelect id="me-currency" value={currency} onChange={(e) => setCurrency(e.target.value)} />
@@ -658,11 +652,6 @@ function PersonalTab() {
 }
 
 type ApiTokenRow = Awaited<ReturnType<typeof listApiTokens>>[number]
-
-function toDay(value: Date | string | number): string {
-  const d = new Date(value)
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-}
 
 function CopyButton({ text, label = 'Copy' }: { text: string; label?: string }) {
   const [copied, setCopied] = useState(false)
@@ -763,10 +752,10 @@ function ApiTab({ tokens }: { tokens: ApiTokenRow[] }) {
     : ''
 
   return (
-    <div className="flex max-w-2xl flex-col gap-4">
+    <div className="flex flex-col gap-4">
       <Card>
         <CardHeader
-          title="API & MCP"
+          title="How tokens work"
           description="Personal tokens let Claude, Cursor or any MCP client act as you in this workspace."
         />
         <div className="flex flex-col gap-2 p-4 text-sm text-fg-muted">
@@ -840,8 +829,8 @@ function ApiTab({ tokens }: { tokens: ApiTokenRow[] }) {
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-medium">{t.name}</p>
                   <p className="text-[13px] text-fg-muted">
-                    <span className="font-mono">{t.tokenPrefix}…</span> · created {formatDay(toDay(t.createdAt))} · last used{' '}
-                    {t.lastUsedAt ? formatDay(toDay(t.lastUsedAt)) : 'Never'}
+                    <span className="font-mono">{t.tokenPrefix}…</span> · created {formatDayAt(t.createdAt, app.workspace.timezone)} ·{' '}
+                    {t.lastUsedAt ? `last used ${formatDayAt(t.lastUsedAt, app.workspace.timezone)}` : 'never used'}
                   </p>
                 </div>
                 <Button

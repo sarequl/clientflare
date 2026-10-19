@@ -1,13 +1,11 @@
 import type { CSSProperties } from 'react'
 import { formatMoney } from '#/lib/money'
+import { formatLongDay } from '#/lib/format'
 import { textOnAccent } from '#/lib/invoice-templates'
 import type { InvoiceDocData } from './types'
 
 /** "2026-10-03" → "October 3, 2026". Documents always show the full date. */
-export function longDate(iso: string) {
-  const [y, m, d] = iso.split('-').map(Number)
-  return new Intl.DateTimeFormat('en-US', { month: 'long', day: 'numeric', year: 'numeric', timeZone: 'UTC' }).format(new Date(Date.UTC(y!, m! - 1, d!)))
-}
+export const longDate = formatLongDay
 
 export function moneyFor(invoice: InvoiceDocData) {
   return (minor: number) => formatMoney(minor, invoice.currency)

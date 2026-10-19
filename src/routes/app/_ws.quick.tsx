@@ -5,7 +5,7 @@ import { formatMoney, parseMoney } from '#/lib/money'
 import { errorMessage, formatPercentBp, todayISO } from '#/lib/format'
 import { Button } from '#/components/Button'
 import { CurrencySelect, Input } from '#/components/Field'
-import { Notice } from '#/components/Card'
+import { Notice, PageHeader } from '#/components/Card'
 import { IconCheck } from '#/components/icons'
 import { useApp } from '#/components/useApp'
 
@@ -78,8 +78,8 @@ function QuickAdd() {
   const tabBase = 'flex-1 h-10 rounded-md text-sm font-medium transition-colors'
 
   return (
-    <div className="mx-auto flex w-full max-w-md flex-col">
-      <h1 className="sr-only">Quick add</h1>
+    <div className="flex w-full max-w-md flex-col">
+      <PageHeader title="Quick add" description="Log income or an expense for today." />
       <form onSubmit={onSubmit} className="flex flex-col gap-4" noValidate>
         <div role="radiogroup" aria-label="Type" className="flex gap-1 rounded-lg border border-border bg-surface-2 p-1">
           {(['income', 'expense'] as const).map((k) => (

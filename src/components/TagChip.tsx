@@ -43,3 +43,14 @@ export function TagList({ tags, max }: { tags: TagLike[]; max?: number }) {
     </span>
   )
 }
+
+const SUGGEST_ORDER = ['blue', 'green', 'orange', 'purple', 'teal', 'pink', 'red', 'yellow', 'gray'] as const
+
+/** The least-used colour among existing tags, so new tags don't all come out the same blue. */
+export function suggestTagColor(tags: { color: string }[]): (typeof SUGGEST_ORDER)[number] {
+  const used = new Map<string, number>()
+  for (const t of tags) used.set(t.color, (used.get(t.color) ?? 0) + 1)
+  let best: (typeof SUGGEST_ORDER)[number] = SUGGEST_ORDER[0]
+  for (const c of SUGGEST_ORDER) if ((used.get(c) ?? 0) < (used.get(best) ?? 0)) best = c
+  return best
+}

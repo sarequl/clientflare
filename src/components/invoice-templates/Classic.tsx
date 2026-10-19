@@ -14,7 +14,7 @@ export function ClassicTemplate({ invoice, business, accent }: InvoiceTemplatePr
     >
       <Watermark status={invoice.status} />
 
-      <header className="relative flex flex-col-reverse gap-6 sm:flex-row sm:items-start sm:justify-between">
+      <header className="relative flex flex-col gap-6 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
           <p className="text-[15px] font-semibold text-neutral-950">{business.name || 'Your business'}</p>
           {business.address && <p className="mt-1 whitespace-pre-line text-neutral-600">{business.address}</p>}
@@ -84,7 +84,7 @@ export function ClassicTemplate({ invoice, business, accent }: InvoiceTemplatePr
         </tbody>
       </table>
 
-      <dl className="relative mt-4 ml-auto grid w-full max-w-72 grid-cols-[1fr_auto] gap-x-6 gap-y-1.5 break-inside-avoid">
+      <dl className="relative mt-4 ml-auto grid w-full grid-cols-[1fr_auto] gap-x-6 gap-y-1.5 break-inside-avoid sm:max-w-72 print:max-w-72">
         <dt className="text-neutral-500">Subtotal</dt>
         <dd className="text-right tnum">{money(invoice.subtotalMinor)}</dd>
         {invoice.taxRateBp > 0 && (
