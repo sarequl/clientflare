@@ -1,0 +1,19 @@
+{
+  "name": "Clientflare",
+  "short_name": "Clientflare",
+  "description": "Self-hosted CRM and money tracker for freelancers and small teams.",
+  "start_url": "/app/quick",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#fbfbfc",
+  "theme_color": "#1f8a63",
+  "icons": [
+    { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "Quick add", "url": "/app/quick" },
+    { "name": "Dashboard", "url": "/app" }
+  ]
+}

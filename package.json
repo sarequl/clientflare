@@ -1,0 +1,76 @@
+{
+  "name": "clientflare",
+  "private": true,
+  "type": "module",
+  "imports": {
+    "#/*": "./src/*"
+  },
+  "scripts": {
+    "dev": "vite dev --port 3000",
+    "build": "vite build",
+    "preview": "pnpm build && vite preview",
+    "deploy": "pnpm build && pnpm db:migrate:remote && wrangler deploy",
+    "cf-typegen": "wrangler types",
+    "typecheck": "tsc --noEmit",
+    "auth:generate": "npx -y @better-auth/cli@1.7.10 generate --config scripts/auth-schema-gen.ts --output src/db/schema/auth.ts -y",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "wrangler d1 migrations apply DB --local",
+    "db:migrate:remote": "wrangler d1 migrations apply DB --remote",
+    "db:studio": "drizzle-kit studio"
+  },
+  "dependencies": {
+    "@better-auth/drizzle-adapter": "1.7.10",
+    "@tailwindcss/vite": "^4.1.18",
+    "@tanstack/react-devtools": "0.10.13",
+    "@tanstack/react-form": "^1.33.5",
+    "@tanstack/react-router": "1.170.45",
+    "@tanstack/react-router-devtools": "1.167.2",
+    "@tanstack/react-start": "1.169.3",
+    "better-auth": "1.7.10",
+    "drizzle-orm": "^0.45.4",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "resend": "^6.34.1",
+    "tailwindcss": "^4.1.18",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@cloudflare/vite-plugin": "^1.26.0",
+    "@tailwindcss/typography": "^0.5.16",
+    "@tanstack/devtools-vite": "0.8.5",
+    "@tanstack/router-cli": "^1.132.0",
+    "@types/node": "^22.20.5",
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "@vitejs/plugin-react": "^6.0.1",
+    "drizzle-kit": "^0.31.11",
+    "typescript": "^6.0.2",
+    "vite": "^8.0.0",
+    "wrangler": "4.151.1"
+  },
+  "version": "0.1.0",
+  "license": "AGPL-3.0-only",
+  "packageManager": "pnpm@12.14.0",
+  "cloudflare": {
+    "bindings": {
+      "DB": {
+        "description": "D1 database holding all CRM data. Created automatically."
+      },
+      "FILES": {
+        "description": "R2 bucket for uploaded files. Created automatically."
+      },
+      "BETTER_AUTH_SECRET": {
+        "description": "Random secret for session signing. Generate with `openssl rand -base64 32`."
+      },
+      "RESEND_API_KEY": {
+        "description": "API key from [Resend](https://resend.com) for sign-in links and invites. Optional until you need email."
+      },
+      "APP_URL": {
+        "description": "Public URL of this deployment, e.g. https://clientflare.<you>.workers.dev"
+      },
+      "EMAIL_FROM": {
+        "description": "From address for system email. Must be a verified Resend domain."
+      }
+    }
+  }
+}

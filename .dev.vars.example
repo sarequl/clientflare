@@ -1,0 +1,5 @@
+# Copy to .dev.vars for local dev. On Cloudflare these become Worker secrets.
+# 32+ random chars. Generate with: openssl rand -base64 32
+BETTER_AUTH_SECRET=change-me-to-a-long-random-string
+# Leave empty locally: emails are printed to the console instead of sent.
+RESEND_API_KEY=

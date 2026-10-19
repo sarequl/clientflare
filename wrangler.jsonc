@@ -1,0 +1,23 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "clientflare",
+  "compatibility_date": "2026-10-19",
+  "compatibility_flags": ["nodejs_compat"],
+  "main": "@tanstack/react-start/server-entry",
+  "observability": { "enabled": true },
+  "upload_source_maps": true,
+  "vars": {
+    // Public URL of this deployment. Used for auth cookies, magic links and invites.
+    "APP_URL": "http://localhost:3000",
+    "EMAIL_FROM": "Clientflare <noreply@example.com>"
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "clientflare-db",
+      "database_id": "local-placeholder",
+      "migrations_dir": "./drizzle"
+    }
+  ],
+  "r2_buckets": [{ "binding": "FILES", "bucket_name": "clientflare-files" }]
+}
