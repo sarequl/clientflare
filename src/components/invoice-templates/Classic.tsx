@@ -1,11 +1,12 @@
 import { formatPercentBp } from '#/lib/format'
 import { formatQuantity } from '../InvoiceStatusBadge'
-import { Watermark, accentStyle, amountDueMinor, longDate, moneyFor } from './shared'
+import { Watermark, accentStyle, amountDueMinor, longDate, moneyFor, revisedDay } from './shared'
 import type { InvoiceTemplateProps } from './types'
 
 /** The original design. The accent tints the "Invoice" title and the total. */
 export function ClassicTemplate({ invoice, business, accent }: InvoiceTemplateProps) {
   const money = moneyFor(invoice)
+  const revised = revisedDay(invoice)
 
   return (
     <article
@@ -49,6 +50,7 @@ export function ClassicTemplate({ invoice, business, accent }: InvoiceTemplatePr
           )}
           <dt className="text-neutral-500">Amount due</dt>
           <dd className="text-right font-semibold text-neutral-950 tnum">{money(amountDueMinor(invoice))}</dd>
+          {revised && <div className="col-span-2 mt-1 text-right text-[11px] text-neutral-500 tnum">Revised {longDate(revised)}</div>}
         </dl>
       </section>
 

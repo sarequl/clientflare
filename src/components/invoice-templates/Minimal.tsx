@@ -1,6 +1,6 @@
 import { formatPercentBp } from '#/lib/format'
 import { formatQuantity } from '../InvoiceStatusBadge'
-import { Watermark, accentStyle, amountDueMinor, longDate, moneyFor } from './shared'
+import { Watermark, accentStyle, amountDueMinor, longDate, moneyFor, revisedDay } from './shared'
 import type { InvoiceTemplateProps } from './types'
 
 /** Small-caps label. */
@@ -9,6 +9,7 @@ const label = 'text-[12px] font-medium tracking-[0.14em] text-neutral-400 [font-
 /** Hairlines, lots of air, monochrome. The accent only touches the total. */
 export function MinimalTemplate({ invoice, business, accent }: InvoiceTemplateProps) {
   const money = moneyFor(invoice)
+  const revised = revisedDay(invoice)
 
   return (
     <article
@@ -54,6 +55,7 @@ export function MinimalTemplate({ invoice, business, accent }: InvoiceTemplatePr
               <dd className="text-right whitespace-nowrap text-neutral-900 tnum">{longDate(invoice.paidOn)}</dd>
             </>
           )}
+          {revised && <div className="col-span-2 mt-1 text-right text-[11px] whitespace-nowrap text-neutral-500 tnum">Revised {longDate(revised)}</div>}
         </dl>
       </section>
 

@@ -7,6 +7,17 @@ import type { InvoiceDocData } from './types'
 /** "2026-10-03" → "October 3, 2026". Documents always show the full date. */
 export const longDate = formatLongDay
 
+/**
+ * The calendar day (YYYY-MM-DD) a sent invoice was last revised, or null for drafts and unrevised invoices.
+ * Callers should pass revisedAt already reduced to the workspace-local day ("2026-10-20"); a raw
+ * timestamp still works but falls back to its UTC day.
+ */
+export function revisedDay(invoice: Pick<InvoiceDocData, 'status' | 'revisedAt'>): string | null {
+  if (!invoice.revisedAt || invoice.status === 'draft') return null
+  const d = new Date(invoice.revisedAt)
+  return Number.isNaN(d.getTime()) ? null : d.toISOString().slice(0, 10)
+}
+
 export function moneyFor(invoice: InvoiceDocData) {
   return (minor: number) => formatMoney(minor, invoice.currency)
 }

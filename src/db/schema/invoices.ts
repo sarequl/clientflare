@@ -35,6 +35,8 @@ export const invoices = sqliteTable(
     /** Unguessable token for the public view link. */
     publicToken: text('public_token').notNull(),
     sentAt: integer('sent_at', { mode: 'timestamp_ms' }),
+    /** Last edit after sending. Printed on the document so the client can tell versions apart. */
+    revisedAt: integer('revised_at', { mode: 'timestamp_ms' }),
     paidOn: text('paid_on'),
     paidAt: integer('paid_at', { mode: 'timestamp_ms' }),
     incomeId: text('income_id').references(() => incomes.id, { onDelete: 'set null' }),

@@ -51,6 +51,7 @@ const invoiceSelect = {
   dueOn: schema.invoices.dueOn,
   totalMinor: schema.invoices.totalMinor,
   paidOn: schema.invoices.paidOn,
+  revisedAt: schema.invoices.revisedAt,
   contactId: schema.invoices.contactId,
   companyId: schema.invoices.companyId,
   dealId: schema.invoices.dealId,
@@ -164,9 +165,10 @@ export const getPublicInvoice = createServerFn({ method: 'GET' })
       db.query.organization.findFirst({ where: eq(schema.organization.id, inv.workspaceId), columns: { name: true } }),
     ])
     // Only what the document needs. No workspace, user or income ids leave the server.
-    const { id, number, status, billTo, currency, issuedOn, dueOn, taxRateBp, subtotalMinor, taxMinor, totalMinor, notes, footer, paidOn, publicToken, lines } = inv
+    const { id, number, status, billTo, currency, issuedOn, dueOn, taxRateBp, subtotalMinor, taxMinor, totalMinor, notes, footer, paidOn, revisedAt, publicToken, lines } = inv
     return {
-      invoice: { id, number, status, billTo, currency, issuedOn, dueOn, taxRateBp, subtotalMinor, taxMinor, totalMinor, notes, footer, paidOn, publicToken, lines: lines.map((l) => ({ id: l.id, description: l.description, quantityMilli: l.quantityMilli, unitMinor: l.unitMinor, amountMinor: l.amountMinor, sortOrder: l.sortOrder })) },
+      // The revised day in the workspace's timezone, like issuedOn, so it never reads as earlier than the issue date.
+      invoice: { id, number, status, billTo, currency, issuedOn, dueOn, taxRateBp, subtotalMinor, taxMinor, totalMinor, notes, footer, paidOn, revisedAt: revisedAt ? todayIn(settings?.timezone ?? 'UTC', revisedAt) : null, publicToken, lines: lines.map((l) => ({ id: l.id, description: l.description, quantityMilli: l.quantityMilli, unitMinor: l.unitMinor, amountMinor: l.amountMinor, sortOrder: l.sortOrder })) },
       business: businessBlock(settings, org?.name ?? ''),
     }
   })
@@ -269,13 +271,9 @@ export const updateInvoice = createServerFn({ method: 'POST' })
     if (!inv) throw new Error('Not found')
     if (inv.status === 'paid' || inv.status === 'void') throw new Error(`A ${inv.status} invoice cannot be edited`)
     const now = new Date()
-    if (inv.status === 'sent') {
-      await db
-        .update(schema.invoices)
-        .set({ notes: data.notes === undefined ? inv.notes : data.notes || null, footer: data.footer === undefined ? inv.footer : data.footer || null, dueOn: data.dueOn === undefined ? inv.dueOn : data.dueOn, updatedAt: now })
-        .where(eq(schema.invoices.id, inv.id))
-      return { ok: true }
-    }
+    // Sent but unpaid invoices stay editable (Stripe/Wave convention); the number is kept and the
+    // document shows a revised date. Paid and void are locked above: void and duplicate instead.
+    const revised = inv.status === 'sent'
     const lines = data.lines ?? inv.lines.map((l) => ({ description: l.description, quantityMilli: l.quantityMilli, unitMinor: l.unitMinor }))
     const taxRateBp = data.taxRateBp ?? inv.taxRateBp
     const t = computeTotals(lines, taxRateBp)
@@ -296,6 +294,7 @@ export const updateInvoice = createServerFn({ method: 'POST' })
           totalMinor: t.totalMinor,
           notes: data.notes === undefined ? inv.notes : data.notes || null,
           footer: data.footer === undefined ? inv.footer : data.footer || null,
+          revisedAt: revised ? now : inv.revisedAt,
           updatedAt: now,
         })
         .where(eq(schema.invoices.id, inv.id)),
@@ -304,8 +303,9 @@ export const updateInvoice = createServerFn({ method: 'POST' })
       stmts.push(db.delete(schema.invoiceLines).where(eq(schema.invoiceLines.invoiceId, inv.id)) as never)
       if (lines.length) stmts.push(db.insert(schema.invoiceLines).values(lines.map((l, i) => ({ id: newId(), invoiceId: inv.id, ...l, amountMinor: t.lineAmounts[i]!, sortOrder: i }))) as never)
     }
+    if (revised && inv.dealId) stmts.push(activityInsert({ workspaceId: ctx.workspaceId, userId: ctx.user.id, targetType: 'deal', targetId: inv.dealId, kind: 'system', body: `Invoice ${inv.number} revised` }) as never)
     await db.batch(stmts as [typeof stmts[0], ...typeof stmts])
-    return { ok: true }
+    return { ok: true, revised }
   })
 
 /** draft → sent. Assigns the number. Does not email anything; the share link is what you send. */

@@ -1,6 +1,6 @@
 import { formatPercentBp } from '#/lib/format'
 import { formatQuantity } from '../InvoiceStatusBadge'
-import { Watermark, accentStyle, amountDueMinor, longDate, moneyFor } from './shared'
+import { Watermark, accentStyle, amountDueMinor, longDate, moneyFor, revisedDay } from './shared'
 import type { InvoiceTemplateProps } from './types'
 
 const cellLabel = 'text-[10px] font-semibold tracking-[0.1em] text-neutral-500 uppercase'
@@ -8,6 +8,7 @@ const cellLabel = 'text-[10px] font-semibold tracking-[0.1em] text-neutral-500 u
 /** Compact and table-forward with serif headings. Built for long itemised invoices. */
 export function LedgerTemplate({ invoice, business, accent }: InvoiceTemplateProps) {
   const money = moneyFor(invoice)
+  const revised = revisedDay(invoice)
 
   return (
     <article
@@ -42,6 +43,7 @@ export function LedgerTemplate({ invoice, business, accent }: InvoiceTemplatePro
         <div className="border-b border-neutral-300 px-3 py-2 sm:min-w-28 sm:border-r sm:border-b-0 print:border-r print:border-b-0">
           <h2 className={cellLabel}>Issued</h2>
           <p className="mt-0.5 whitespace-nowrap text-neutral-900 tnum">{longDate(invoice.issuedOn)}</p>
+          {revised && <p className="text-[10px] whitespace-nowrap text-neutral-500 tnum">Revised {longDate(revised)}</p>}
         </div>
         <div className="border-b border-neutral-300 px-3 py-2 sm:min-w-28 sm:border-r sm:border-b-0 print:border-r print:border-b-0">
           <h2 className={cellLabel}>{invoice.status === 'paid' && invoice.paidOn ? 'Paid' : 'Due'}</h2>

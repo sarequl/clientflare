@@ -1,6 +1,6 @@
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
-import { Button } from './Button'
+import { Button, type ButtonVariant } from './Button'
 import { IconX } from './icons'
 
 const FOCUSABLE = 'a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])'
@@ -117,6 +117,7 @@ export function ConfirmDialog({
   title,
   body,
   confirmLabel = 'Delete',
+  confirmVariant = 'danger',
   pending,
   error,
 }: {
@@ -126,6 +127,8 @@ export function ConfirmDialog({
   title: ReactNode
   body?: ReactNode
   confirmLabel?: string
+  /** Destructive by default; pass 'primary' for confirmations that don't lose anything. */
+  confirmVariant?: ButtonVariant
   pending?: boolean
   error?: string | null
 }) {
@@ -141,7 +144,7 @@ export function ConfirmDialog({
         <Button onClick={onClose} disabled={pending} data-autofocus>
           Cancel
         </Button>
-        <Button variant="danger" onClick={onConfirm} pending={pending}>
+        <Button variant={confirmVariant} onClick={onConfirm} pending={pending}>
           {confirmLabel}
         </Button>
       </div>

@@ -13,7 +13,7 @@ import {
 import { listSetAsides } from '#/features/finance/server'
 import { computeTotals } from '#/lib/invoice-math'
 import { formatMoney, parseMoney } from '#/lib/money'
-import { errorMessage, formatDay, formatLongDay, formatPercentBp, minorToInput, todayISO } from '#/lib/format'
+import { dayOf, errorMessage, formatDay, formatLongDay, formatPercentBp, minorToInput, todayISO } from '#/lib/format'
 import { Card, CardHeader, Notice } from '#/components/Card'
 import { Button, IconButton, buttonClass } from '#/components/Button'
 import { Checkbox, CurrencySelect, Field, Input, Textarea } from '#/components/Field'
@@ -22,6 +22,7 @@ import { OverflowMenu } from '#/components/Popover'
 import { CompanyPicker, type CompanyRef } from '#/components/CompanyPicker'
 import { ContactPicker, type ContactRef } from '#/components/ContactPicker'
 import { InvoiceDocument, type BusinessBlock } from '#/components/InvoiceDocument'
+import { revisedDay } from '#/components/invoice-templates/shared'
 import { InvoiceStatusBadge, formatQuantity, parseQuantity, parseTaxPercent } from '#/components/InvoiceStatusBadge'
 import { Money } from '#/components/Money'
 import { useApp } from '#/components/useApp'
@@ -58,8 +59,13 @@ function InvoicePage() {
   const { invoice, business: rawBusiness, rules } = Route.useLoaderData()
   const business = useBusiness(rawBusiness)
   const [flash, setFlash] = useState<Flash | null>(null)
+  // Revising a sent invoice. Only meaningful while it is still sent; paid or void falls back to the read view.
+  const [revising, setRevising] = useState(false)
 
-  useEffect(() => setFlash(null), [invoice.id])
+  useEffect(() => {
+    setFlash(null)
+    setRevising(false)
+  }, [invoice.id])
 
   return (
     <>
@@ -73,8 +79,21 @@ function InvoicePage() {
       )}
       {invoice.status === 'draft' ? (
         <DraftEditor key={invoice.id} invoice={invoice} onFlash={setFlash} />
+      ) : revising && invoice.status === 'sent' ? (
+        <DraftEditor key={`${invoice.id}-revision`} mode="revision" invoice={invoice} onFlash={setFlash} onExit={() => setRevising(false)} />
       ) : (
-        <IssuedView key={`${invoice.id}-${invoice.status}`} invoice={invoice} business={business} rules={rules} onFlash={setFlash} />
+        <IssuedView
+          key={`${invoice.id}-${invoice.status}`}
+          invoice={invoice}
+          business={business}
+          rules={rules}
+          onFlash={setFlash}
+          onEdit={() => {
+            setFlash(null)
+            setRevising(true)
+            window.scrollTo({ top: 0 })
+          }}
+        />
       )}
     </>
   )
@@ -187,10 +206,46 @@ function build(d: DraftState): Built {
   return { errors, lines, preview, taxRateBp: taxRateBp ?? 0 }
 }
 
-function DraftEditor({ invoice, onFlash }: { invoice: Invoice; onFlash: (f: Flash | null) => void }) {
+/** The full updateInvoice payload. Drafts autosave it; revisions send it once on confirm. */
+function payloadFor(id: string, d: DraftState, b: Built) {
+  return {
+    id,
+    contactId: d.contact?.id ?? null,
+    companyId: d.company?.id ?? null,
+    billTo: d.billTo.trim(),
+    currency: d.currency,
+    issuedOn: d.issuedOn,
+    dueOn: d.dueOn || null,
+    taxRateBp: b.taxRateBp,
+    notes: d.notes.trim(),
+    footer: d.footer.trim(),
+    lines: b.lines,
+  }
+}
+
+/** Comparable form of the editor state, without row keys or picker display names. */
+function snapshot(d: DraftState) {
+  return JSON.stringify({ ...d, contact: d.contact?.id ?? null, company: d.company?.id ?? null, lines: d.lines.map(({ key: _key, ...l }) => l) })
+}
+
+type EditorMode = 'draft' | 'revision'
+
+/**
+ * Drafts autosave and can be sent or deleted. In `revision` mode (a sent, unpaid invoice) the same
+ * form keeps edits local until "Save changes", which confirms and sends one update; the number is kept.
+ */
+function DraftEditor({ invoice, onFlash, mode = 'draft', onExit }: { invoice: Invoice; onFlash: (f: Flash | null) => void; mode?: EditorMode; onExit?: () => void }) {
   const router = useRouter()
   const navigate = useNavigate()
+  const revision = mode === 'revision'
   const [draft, setDraft] = useState(() => initialDraft(invoice))
+  const [initialSnapshot] = useState(() => snapshot(initialDraft(invoice)))
+  const dirty = snapshot(draft) !== initialSnapshot
+  const [confirmingRevision, setConfirmingRevision] = useState(false)
+  const [revisionPending, setRevisionPending] = useState(false)
+  const [revisionError, setRevisionError] = useState<string | null>(null)
+  const [revisionBlocked, setRevisionBlocked] = useState<string | null>(null)
+  const [discarding, setDiscarding] = useState(false)
   const [status, setStatus] = useState<SaveStatus>('saved')
   const [saveError, setSaveError] = useState<string | null>(null)
   const [tick, setTick] = useState(0)
@@ -218,6 +273,7 @@ function DraftEditor({ invoice, onFlash }: { invoice: Invoice; onFlash: (f: Flas
     setDraft(next)
     rev.current++
     setStatus('dirty')
+    setRevisionBlocked(null)
     setTick((t) => t + 1)
   }
 
@@ -233,21 +289,7 @@ function DraftEditor({ invoice, onFlash }: { invoice: Invoice; onFlash: (f: Flas
     }
     setStatus('saving')
     setSaveError(null)
-    const p = updateInvoice({
-      data: {
-        id: invoice.id,
-        contactId: d.contact?.id ?? null,
-        companyId: d.company?.id ?? null,
-        billTo: d.billTo.trim(),
-        currency: d.currency,
-        issuedOn: d.issuedOn,
-        dueOn: d.dueOn || null,
-        taxRateBp: b.taxRateBp,
-        notes: d.notes.trim(),
-        footer: d.footer.trim(),
-        lines: b.lines,
-      },
-    })
+    const p = updateInvoice({ data: payloadFor(invoice.id, d, b) })
       .then(() => {
         savedRev.current = target
         return true
@@ -269,18 +311,31 @@ function DraftEditor({ invoice, onFlash }: { invoice: Invoice; onFlash: (f: Flas
   }, [invoice.id])
 
   // Autosave shortly after typing stops; blur saves right away.
+  // Revisions never autosave: the client already has this invoice, so changes go out in one confirmed step.
   useEffect(() => {
-    if (status !== 'dirty') return
+    if (revision || status !== 'dirty') return
     const t = setTimeout(() => void flush(), 900)
     return () => clearTimeout(t)
-  }, [tick, status, flush])
+  }, [tick, status, flush, revision])
 
+  // Keep focused fields from scrolling in under the sticky action bar.
   useEffect(() => {
-    if (status === 'saved') return
+    if (!revision) return
+    const root = document.documentElement
+    const prev = root.style.scrollPaddingBottom
+    root.style.scrollPaddingBottom = '5rem'
+    return () => {
+      root.style.scrollPaddingBottom = prev
+    }
+  }, [revision])
+
+  const unsaved = revision ? dirty && !revisionPending : status !== 'saved'
+  useEffect(() => {
+    if (!unsaved) return
     const onUnload = (e: BeforeUnloadEvent) => e.preventDefault()
     window.addEventListener('beforeunload', onUnload)
     return () => window.removeEventListener('beforeunload', onUnload)
-  }, [status])
+  }, [unsaved])
 
   const set = <K extends keyof DraftState>(k: K, v: DraftState[K]) => change((d) => ({ ...d, [k]: v }))
   const setLine = (key: string, patch: Partial<LineState>) => change((d) => ({ ...d, lines: d.lines.map((l) => (l.key === key ? { ...l, ...patch } : l)) }))
@@ -367,48 +422,91 @@ function DraftEditor({ invoice, onFlash }: { invoice: Invoice; onFlash: (f: Flas
     }
   }
 
+  function requestRevision() {
+    if (hasErrors) return setRevisionBlocked('Fix the highlighted fields first.')
+    if (built.lines.length === 0) return setRevisionBlocked('Add at least one line item.')
+    setRevisionBlocked(null)
+    setRevisionError(null)
+    setConfirmingRevision(true)
+  }
+
+  async function confirmRevision() {
+    const d = draftRef.current
+    const b = build(d)
+    setRevisionPending(true)
+    setRevisionError(null)
+    try {
+      await updateInvoice({ data: payloadFor(invoice.id, d, b) })
+      await router.invalidate()
+      onFlash({ kind: 'info', text: 'Invoice revised. Resend the share link.' })
+      onExit?.()
+    } catch (err) {
+      setRevisionError(errorMessage(err, 'Could not update the invoice.'))
+      setRevisionPending(false)
+    }
+  }
+
+  function cancelRevision() {
+    if (dirty) setDiscarding(true)
+    else onExit?.()
+  }
+
   const err = (k: string) => built.errors[k]
 
   return (
     <>
-      <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0">
+      {revision ? (
+        <div className="mb-5">
           <div className="flex items-center gap-2">
-            <h1 className="text-xl font-semibold tracking-tight">Draft invoice</h1>
-            <InvoiceStatusBadge status="draft" />
+            <h1 className="text-xl font-semibold tracking-tight">
+              Editing <span className="tnum">{invoice.number}</span>
+            </h1>
+            <InvoiceStatusBadge status="sent" />
           </div>
-          <SaveIndicator status={status} error={saveError} onRetry={() => void flush()} />
+          <div className="mt-3">
+            <Notice tone="warn">This invoice has been sent. Saving updates the share link your client already has; resend it so they see the new version.</Notice>
+          </div>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <Button icon={<IconPrinter />} onClick={openPrint}>
-            <span className="hidden sm:inline">Print / PDF</span>
-            <span className="sm:hidden">PDF</span>
-          </Button>
-          <Button
-            variant="primary"
-            icon={<IconSend />}
-            onClick={() => {
-              setSendError(null)
-              setSending(true)
-            }}
-          >
-            Mark as sent
-          </Button>
-          <OverflowMenu
-            items={[
-              { label: 'Duplicate', icon: <IconCopy />, onSelect: onDuplicate },
-              {
-                label: 'Delete draft',
-                icon: <IconTrash />,
-                onSelect: () => {
-                  setDeleteError(null)
-                  setDeleting(true)
+      ) : (
+        <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <h1 className="text-xl font-semibold tracking-tight">Draft invoice</h1>
+              <InvoiceStatusBadge status="draft" />
+            </div>
+            <SaveIndicator status={status} error={saveError} onRetry={() => void flush()} />
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button icon={<IconPrinter />} onClick={openPrint}>
+              <span className="hidden sm:inline">Print / PDF</span>
+              <span className="sm:hidden">PDF</span>
+            </Button>
+            <Button
+              variant="primary"
+              icon={<IconSend />}
+              onClick={() => {
+                setSendError(null)
+                setSending(true)
+              }}
+            >
+              Mark as sent
+            </Button>
+            <OverflowMenu
+              items={[
+                { label: 'Duplicate', icon: <IconCopy />, onSelect: onDuplicate },
+                {
+                  label: 'Delete draft',
+                  icon: <IconTrash />,
+                  onSelect: () => {
+                    setDeleteError(null)
+                    setDeleting(true)
+                  },
                 },
-              },
-            ]}
-          />
+              ]}
+            />
+          </div>
         </div>
-      </div>
+      )}
 
       {actionError && (
         <div className="mb-4">
@@ -422,9 +520,12 @@ function DraftEditor({ invoice, onFlash }: { invoice: Invoice; onFlash: (f: Flas
         noValidate
         onSubmit={(e) => {
           e.preventDefault()
-          void flush()
+          if (revision) {
+            if (dirty) requestRevision()
+          } else void flush()
         }}
         onBlur={(e) => {
+          if (revision) return
           // Leaving a field (not just moving within a picker) saves now.
           if (!e.currentTarget.contains(e.relatedTarget as Node | null) || (e.target as HTMLElement).matches('input,textarea,select')) void flush()
         }}
@@ -585,10 +686,62 @@ function DraftEditor({ invoice, onFlash }: { invoice: Invoice; onFlash: (f: Flas
         </Card>
       </form>
 
+      {revision && (
+        // Pinned to the viewport bottom while the form scrolls; sits flush under the last card at the end.
+        <div className="sticky bottom-0 z-20 -mx-4 mt-4 -mb-5 border-t border-border bg-surface/95 px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur sm:-mx-6 sm:-mb-8 sm:px-6">
+          <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+            <p className={`text-[13px] ${revisionBlocked ? 'text-danger' : 'text-fg-muted'}`} role={revisionBlocked ? 'alert' : undefined} aria-live="polite">
+              {revisionBlocked ?? (dirty ? 'Unsaved changes' : 'No changes yet')}
+            </p>
+            <div className="ml-auto flex items-center gap-2">
+              <Button onClick={cancelRevision} disabled={revisionPending}>
+                Cancel
+              </Button>
+              <Button variant="primary" icon={<IconCheck />} onClick={requestRevision} disabled={!dirty} pending={revisionPending}>
+                Save changes
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <ConfirmDialog
+        open={confirmingRevision}
+        onClose={() => setConfirmingRevision(false)}
+        onConfirm={confirmRevision}
+        pending={revisionPending}
+        error={revisionError}
+        title="Update sent invoice?"
+        body={
+          <>
+            <p>
+              {invoice.number} keeps its number. The document will show today as its revised date, and the share link shows the new version straight away.
+            </p>
+            <p className="mt-2">
+              New total: <Money minor={totals.totalMinor} currency={draft.currency} className="font-semibold text-fg" />
+            </p>
+          </>
+        }
+        confirmLabel="Update invoice"
+        confirmVariant="primary"
+      />
+
+      <ConfirmDialog
+        open={discarding}
+        onClose={() => setDiscarding(false)}
+        onConfirm={() => {
+          setDiscarding(false)
+          onExit?.()
+        }}
+        title="Discard your changes?"
+        body={`Your edits to ${invoice.number} haven't been saved. The invoice stays as it was.`}
+        confirmLabel="Discard changes"
+      />
+
       <Modal open={sending} onClose={() => !sendPending && setSending(false)} title="Mark as sent?" size="sm">
         <div className="text-sm text-fg-muted">
           <p>
-            This gives the invoice its number and locks the line items. You can still change the notes, footer and due date afterwards.
+            This gives the invoice its number. You can still edit it until it's paid; edits after sending show on the document as a revised date.
           </p>
           <p className="mt-2">
             Total: <Money minor={totals.totalMinor} currency={draft.currency} className="font-semibold text-fg" />
@@ -657,12 +810,23 @@ function SaveIndicator({ status, error, onRetry }: { status: SaveStatus; error: 
 
 // ── Sent / paid / void ─────────────────────────────────────────────────────
 
-function IssuedView({ invoice, business, rules, onFlash }: { invoice: Invoice; business: BusinessBlock; rules: Rule[]; onFlash: (f: Flash | null) => void }) {
+function IssuedView({
+  invoice,
+  business,
+  rules,
+  onFlash,
+  onEdit,
+}: {
+  invoice: Invoice
+  business: BusinessBlock
+  rules: Rule[]
+  onFlash: (f: Flash | null) => void
+  onEdit: () => void
+}) {
   const router = useRouter()
   const navigate = useNavigate()
   const [origin, setOrigin] = useState('')
   const [copied, setCopied] = useState(false)
-  const [editing, setEditing] = useState(false)
   const [paying, setPaying] = useState(false)
   const [confirm, setConfirm] = useState<'void' | 'unpaid' | null>(null)
   const [confirmPending, setConfirmPending] = useState(false)
@@ -671,6 +835,9 @@ function IssuedView({ invoice, business, rules, onFlash }: { invoice: Invoice; b
   const today = todayISO()
   const overdue = invoice.status === 'sent' && !!invoice.dueOn && invoice.dueOn < today
   const shareUrl = `${origin}/i/${invoice.publicToken}`
+  const app = useApp()
+  // Workspace-local day, like issuedOn; the templates read it from revisedAt.
+  const revised = revisedDay({ status: invoice.status, revisedAt: invoice.revisedAt ? dayOf(invoice.revisedAt, app.workspace.timezone) : null })
 
   useEffect(() => setOrigin(window.location.origin), [])
 
@@ -712,7 +879,6 @@ function IssuedView({ invoice, business, rules, onFlash }: { invoice: Invoice; b
   }
 
   const menu = [
-    ...(invoice.status === 'sent' ? [{ label: 'Edit due date & notes', icon: <IconPencil />, onSelect: () => setEditing(true) }] : []),
     { label: 'Duplicate', icon: <IconCopy />, onSelect: onDuplicate },
     ...(invoice.status === 'sent'
       ? [
@@ -746,9 +912,14 @@ function IssuedView({ invoice, business, rules, onFlash }: { invoice: Invoice; b
             <span className="sm:hidden">PDF</span>
           </a>
           {invoice.status === 'sent' && (
-            <Button variant="primary" icon={<IconCheck />} onClick={() => setPaying(true)}>
-              Mark paid
-            </Button>
+            <>
+              <Button icon={<IconPencil />} onClick={onEdit}>
+                Edit
+              </Button>
+              <Button variant="primary" icon={<IconCheck />} onClick={() => setPaying(true)}>
+                Mark paid
+              </Button>
+            </>
           )}
           {invoice.status === 'paid' && (
             <Button
@@ -775,7 +946,7 @@ function IssuedView({ invoice, business, rules, onFlash }: { invoice: Invoice; b
 
       <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_17rem]">
         <div className="order-2 min-w-0 rounded-lg bg-surface-3 p-2 sm:p-4 lg:order-1">
-          <InvoiceDocument invoice={invoice} business={business} />
+          <InvoiceDocument invoice={{ ...invoice, revisedAt: revised }} business={business} />
         </div>
 
         <div className="order-1 flex flex-col gap-4 lg:order-2">
@@ -801,6 +972,12 @@ function IssuedView({ invoice, business, rules, onFlash }: { invoice: Invoice; b
             <dl className="grid grid-cols-[6rem_minmax(0,1fr)] gap-x-3 gap-y-2 p-4 text-sm">
               <dt className="text-fg-muted">Issued</dt>
               <dd className="tnum">{formatLongDay(invoice.issuedOn)}</dd>
+              {revised && (
+                <>
+                  <dt className="text-fg-muted">Revised</dt>
+                  <dd className="tnum">{formatLongDay(revised)}</dd>
+                </>
+              )}
               <dt className="text-fg-muted">Due</dt>
               <dd className={`tnum ${overdue ? 'font-medium text-danger' : ''}`}>
                 {invoice.dueOn ? formatLongDay(invoice.dueOn) : '—'}
@@ -823,13 +1000,6 @@ function IssuedView({ invoice, business, rules, onFlash }: { invoice: Invoice; b
                 </>
               )}
             </dl>
-            {invoice.status === 'sent' && (
-              <div className="border-t border-border px-4 py-3">
-                <Button size="sm" variant="ghost" icon={<IconPencil />} onClick={() => setEditing(true)}>
-                  Edit due date & notes
-                </Button>
-              </div>
-            )}
           </Card>
 
           {(invoice.contact || invoice.company || invoice.deal) && (
@@ -863,10 +1033,6 @@ function IssuedView({ invoice, business, rules, onFlash }: { invoice: Invoice; b
         </div>
       </div>
 
-      <Modal open={editing} onClose={() => setEditing(false)} title="Edit sent invoice" description="Line items are locked once an invoice is sent.">
-        {editing && <SentDetailsForm invoice={invoice} onDone={() => setEditing(false)} />}
-      </Modal>
-
       <Modal open={paying} onClose={() => setPaying(false)} title={`Mark ${invoice.number} paid`} size="sm">
         {paying && (
           <MarkPaidForm
@@ -896,53 +1062,6 @@ function IssuedView({ invoice, business, rules, onFlash }: { invoice: Invoice; b
         }
       />
     </>
-  )
-}
-
-function SentDetailsForm({ invoice, onDone }: { invoice: Invoice; onDone: () => void }) {
-  const router = useRouter()
-  const [dueOn, setDueOn] = useState(invoice.dueOn ?? '')
-  const [notes, setNotes] = useState(invoice.notes ?? '')
-  const [footer, setFooter] = useState(invoice.footer ?? '')
-  const [pending, setPending] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-
-  async function onSubmit(e: FormEvent) {
-    e.preventDefault()
-    setPending(true)
-    setError(null)
-    try {
-      await updateInvoice({ data: { id: invoice.id, dueOn: dueOn || null, notes: notes.trim(), footer: footer.trim() } })
-      await router.invalidate()
-      onDone()
-    } catch (err) {
-      setError(errorMessage(err, 'Could not save.'))
-    } finally {
-      setPending(false)
-    }
-  }
-
-  return (
-    <form onSubmit={onSubmit} className="flex flex-col gap-4" noValidate>
-      <Field label="Due on" htmlFor="sent-due">
-        <Input id="sent-due" type="date" value={dueOn} onChange={(e) => setDueOn(e.target.value)} />
-      </Field>
-      <Field label="Notes" htmlFor="sent-notes">
-        <Textarea id="sent-notes" rows={3} value={notes} onChange={(e) => setNotes(e.target.value)} maxLength={5000} />
-      </Field>
-      <Field label="Footer" htmlFor="sent-footer">
-        <Textarea id="sent-footer" rows={3} value={footer} onChange={(e) => setFooter(e.target.value)} maxLength={2000} />
-      </Field>
-      {error && <Notice tone="danger">{error}</Notice>}
-      <ModalActions>
-        <Button onClick={onDone} disabled={pending}>
-          Cancel
-        </Button>
-        <Button type="submit" variant="primary" pending={pending}>
-          Save changes
-        </Button>
-      </ModalActions>
-    </form>
   )
 }
 

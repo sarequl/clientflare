@@ -1,6 +1,6 @@
 import { formatPercentBp } from '#/lib/format'
 import { formatQuantity } from '../InvoiceStatusBadge'
-import { Watermark, accentStyle, amountDueMinor, longDate, moneyFor } from './shared'
+import { Watermark, accentStyle, amountDueMinor, longDate, moneyFor, revisedDay } from './shared'
 import type { InvoiceTemplateProps } from './types'
 
 const label = 'text-[11px] font-semibold tracking-[0.12em] uppercase'
@@ -8,6 +8,7 @@ const label = 'text-[11px] font-semibold tracking-[0.12em] uppercase'
 /** Accent header band, roomy body, totals in a tinted box. */
 export function ModernTemplate({ invoice, business, accent }: InvoiceTemplateProps) {
   const money = moneyFor(invoice)
+  const revised = revisedDay(invoice)
 
   return (
     <article
@@ -38,6 +39,7 @@ export function ModernTemplate({ invoice, business, accent }: InvoiceTemplatePro
           <div>
             <h2 className={`${label} text-(--inv-accent)`}>Issued</h2>
             <p className="mt-1.5 whitespace-nowrap text-neutral-900 tnum">{longDate(invoice.issuedOn)}</p>
+            {revised && <p className="mt-0.5 text-[11px] whitespace-nowrap text-neutral-500 tnum">Revised {longDate(revised)}</p>}
             {invoice.status === 'paid' && invoice.paidOn && (
               <>
                 <h2 className={`${label} mt-4 text-emerald-700`}>Paid</h2>

@@ -4,6 +4,7 @@ import { getInvoice } from '#/features/invoices/server'
 import { InvoiceDocument, useAutoPrint } from '#/components/InvoiceDocument'
 import { Button, buttonClass } from '#/components/Button'
 import { useApp } from '#/components/useApp'
+import { dayOf } from '#/lib/format'
 import { IconChevronLeft } from '#/components/icons'
 import { IconPrinter } from '#/components/icons-invoice'
 
@@ -36,7 +37,7 @@ function PrintPage() {
           Print / Save PDF
         </Button>
       </div>
-      <InvoiceDocument invoice={invoice} business={{ ...business, name }} />
+      <InvoiceDocument invoice={{ ...invoice, revisedAt: invoice.revisedAt ? dayOf(invoice.revisedAt, app.workspace.timezone) : null }} business={{ ...business, name }} />
     </div>
   )
 }

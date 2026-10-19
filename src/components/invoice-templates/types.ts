@@ -6,6 +6,8 @@ export type InvoiceDocData = {
   issuedOn: string
   dueOn: string | null
   paidOn: string | null
+  /** Set when a sent invoice was edited. Templates print "Revised <date>". */
+  revisedAt?: Date | string | null
   taxRateBp: number
   subtotalMinor: number
   taxMinor: number
