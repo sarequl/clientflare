@@ -1,6 +1,7 @@
 import { createServerFn, createServerOnlyFn } from '@tanstack/react-start'
 import { and, asc, desc, eq, isNull, lt, lte, or, sql } from 'drizzle-orm'
 import { z } from 'zod'
+import { todayIn } from '#/lib/dates'
 import { getDb, schema } from '#/db'
 import { newId } from '#/lib/ids'
 import { linkMail, sendMail } from '#/lib/email'
@@ -9,14 +10,7 @@ import { activityInsert } from '#/features/activities/server'
 
 const ISO_DATE = z.string().regex(/^\d{4}-\d{2}-\d{2}$/)
 
-/** Today's date (YYYY-MM-DD) in an IANA timezone. */
-export function todayIn(timezone: string, at = new Date()): string {
-  try {
-    return new Intl.DateTimeFormat('en-CA', { timeZone: timezone, year: 'numeric', month: '2-digit', day: '2-digit' }).format(at)
-  } catch {
-    return at.toISOString().slice(0, 10)
-  }
-}
+export { todayIn }
 
 const taskSelect = {
   id: schema.tasks.id,

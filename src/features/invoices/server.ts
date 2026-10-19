@@ -8,6 +8,7 @@ import { requireRole, requireWorkspace } from '#/lib/session'
 import { activityInsert } from '#/features/activities/server'
 import { recordIncome } from '#/features/finance/server'
 import { computeTotals } from '#/lib/invoice-math'
+import { todayIn } from '#/lib/dates'
 import { HEX_COLOR, INVOICE_TEMPLATE_IDS, resolveTemplateId } from '#/lib/invoice-templates'
 
 const ISO_DATE = z.string().regex(/^\d{4}-\d{2}-\d{2}$/)
@@ -21,6 +22,12 @@ const lineInput = z.object({
 })
 
 export { computeTotals }
+
+/** Today in the workspace's timezone, so invoices issued late in the evening get the right date. */
+async function workspaceToday(workspaceId: string) {
+  const s = await getDb().query.workspaceSettings.findFirst({ where: eq(schema.workspaceSettings.organizationId, workspaceId), columns: { timezone: true } })
+  return todayIn(s?.timezone ?? 'UTC')
+}
 
 const addDays = (iso: string, days: number) => {
   const d = new Date(`${iso}T00:00:00Z`)
@@ -67,7 +74,7 @@ export const listInvoices = createServerFn({ method: 'GET' })
   .handler(async ({ data }) => {
     const ctx = await requireWorkspace()
     const db = getDb()
-    const today = data?.today ?? new Date().toISOString().slice(0, 10)
+    const today = data?.today ?? (await workspaceToday(ctx.workspaceId))
     const conds = [eq(schema.invoices.workspaceId, ctx.workspaceId)]
     if (data?.q) conds.push(or(like(schema.invoices.number, `%${data.q}%`), like(schema.invoices.billTo, `%${data.q}%`))!)
     if (data?.status === 'overdue') conds.push(eq(schema.invoices.status, 'sent'), sql`${schema.invoices.dueOn} < ${today}`)
@@ -87,7 +94,7 @@ export const listInvoices = createServerFn({ method: 'GET' })
 
 export const getInvoiceStats = createServerFn({ method: 'GET' }).handler(async () => {
   const ctx = await requireWorkspace()
-  const today = new Date().toISOString().slice(0, 10)
+  const today = await workspaceToday(ctx.workspaceId)
   const rows = await getDb()
     .select({
       currency: schema.invoices.currency,
@@ -204,7 +211,7 @@ export const createInvoice = createServerFn({ method: 'POST' })
     const db = getDb()
     const settings = await db.query.workspaceSettings.findFirst({ where: eq(schema.workspaceSettings.organizationId, ctx.workspaceId) })
     const now = new Date()
-    const issuedOn = data.issuedOn ?? now.toISOString().slice(0, 10)
+    const issuedOn = data.issuedOn ?? todayIn(settings?.timezone ?? 'UTC', now)
     const taxRateBp = data.taxRateBp ?? settings?.defaultTaxRateBp ?? 0
     const lines = data.lines ?? []
     const t = computeTotals(lines, taxRateBp)

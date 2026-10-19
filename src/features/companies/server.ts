@@ -37,7 +37,7 @@ export const listCompanies = createServerFn({ method: 'GET' })
           domain: schema.companies.domain,
           phone: schema.companies.phone,
           updatedAt: schema.companies.updatedAt,
-          contactCount: sql<number>`(select count(*) from contacts c where c.company_id = ${schema.companies.id})`,
+          contactCount: sql<number>`(select count(*) from contacts c where c.company_id = companies.id)`,
         })
         .from(schema.companies)
         .where(where)
