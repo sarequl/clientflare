@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import { Link, createFileRoute, useRouter } from '@tanstack/react-router'
 import { z } from 'zod'
 import {
@@ -25,8 +25,12 @@ import { listFields } from '#/features/custom-fields/server'
 import { getInvoiceSettings, updateInvoiceSettings } from '#/features/invoices/server'
 import { StageSettings } from '#/components/StageSettings'
 import { parseTaxPercent } from '#/components/InvoiceStatusBadge'
+import { createApiToken, listApiTokens, revokeApiToken } from '#/features/api-tokens/server'
+import { IconCheck } from '#/components/icons'
+import { IconCopy } from '#/components/icons-invoice'
+import { IconLock } from '#/components/icons2'
 
-const TABS = ['workspace', 'members', 'pipeline', 'invoicing', 'tags', 'fields', 'personal'] as const
+const TABS = ['workspace', 'members', 'pipeline', 'invoicing', 'tags', 'fields', 'personal', 'api'] as const
 type Tab = (typeof TABS)[number]
 
 const searchSchema = z.object({ tab: z.enum(TABS).optional().catch(undefined) })
@@ -35,15 +39,16 @@ export const Route = createFileRoute('/app/_ws/settings')({
   validateSearch: (search: Record<string, unknown>) => searchSchema.parse(search),
   loaderDeps: ({ search }) => ({ tab: search.tab ?? 'workspace' }),
   loader: async ({ deps }) => {
-    const [members, tags, fields, invoicing] = await Promise.all([
+    const [members, tags, fields, invoicing, apiTokens] = await Promise.all([
       deps.tab === 'members' ? listMembers() : null,
       deps.tab === 'tags' ? listTags() : null,
       deps.tab === 'fields'
         ? Promise.all([listFields({ data: { recordType: 'contact' } }), listFields({ data: { recordType: 'company' } })]).then(([contact, company]) => ({ contact, company }))
         : null,
       deps.tab === 'invoicing' ? getInvoiceSettings() : null,
+      deps.tab === 'api' ? listApiTokens() : null,
     ])
-    return { members, tags, fields, invoicing }
+    return { members, tags, fields, invoicing, apiTokens }
   },
   head: () => ({ meta: [{ title: 'Settings · Clientflare' }] }),
   component: SettingsPage,
@@ -57,11 +62,12 @@ const TAB_LABELS: Record<Tab, string> = {
   tags: 'Tags',
   fields: 'Custom fields',
   personal: 'Personal',
+  api: 'API & MCP',
 }
 
 function SettingsPage() {
   const { tab = 'workspace' } = Route.useSearch()
-  const { members, tags, fields, invoicing } = Route.useLoaderData()
+  const { members, tags, fields, invoicing, apiTokens } = Route.useLoaderData()
 
   return (
     <>
@@ -88,6 +94,7 @@ function SettingsPage() {
       {tab === 'tags' && tags && <TagSettings tags={tags} />}
       {tab === 'fields' && fields && <FieldSettings fields={fields} />}
       {tab === 'personal' && <PersonalTab />}
+      {tab === 'api' && apiTokens && <ApiTab tokens={apiTokens} />}
     </>
   )
 }
@@ -521,6 +528,223 @@ function PersonalTab() {
           </dd>
         </dl>
       </Card>
+    </div>
+  )
+}
+
+type ApiTokenRow = Awaited<ReturnType<typeof listApiTokens>>[number]
+
+function toDay(value: Date | string | number): string {
+  const d = new Date(value)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+function CopyButton({ text, label = 'Copy' }: { text: string; label?: string }) {
+  const [copied, setCopied] = useState(false)
+  const [failed, setFailed] = useState(false)
+
+  async function copy() {
+    setFailed(false)
+    try {
+      await navigator.clipboard.writeText(text)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1800)
+    } catch {
+      setFailed(true)
+    }
+  }
+
+  return (
+    <Button size="sm" icon={copied ? <IconCheck /> : <IconCopy />} onClick={copy} title={failed ? 'Could not copy. Select the text and copy it by hand.' : undefined}>
+      {copied ? 'Copied' : failed ? 'Copy failed' : label}
+    </Button>
+  )
+}
+
+function CodeBlock({ label, code }: { label: string; code: string }) {
+  return (
+    <div className="flex flex-col gap-1.5">
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-[13px] font-medium">{label}</p>
+        <CopyButton text={code} />
+      </div>
+      <pre className="overflow-x-auto rounded-md border border-border bg-surface-2 px-3 py-2.5 font-mono text-[12px] leading-relaxed break-all whitespace-pre-wrap">{code}</pre>
+    </div>
+  )
+}
+
+function ApiTab({ tokens }: { tokens: ApiTokenRow[] }) {
+  const app = useApp()
+  const router = useRouter()
+  const [origin, setOrigin] = useState('')
+  const [name, setName] = useState('')
+  const [pending, setPending] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [created, setCreated] = useState<{ id: string; name: string; token: string } | null>(null)
+  const [revoking, setRevoking] = useState<ApiTokenRow | null>(null)
+  const [revokePending, setRevokePending] = useState(false)
+  const [revokeError, setRevokeError] = useState<string | null>(null)
+
+  useEffect(() => setOrigin(window.location.origin), [])
+
+  async function onCreate(e: FormEvent) {
+    e.preventDefault()
+    setError(null)
+    const trimmed = name.trim()
+    if (!trimmed) {
+      setError('Give the token a name so you can recognise it later.')
+      return
+    }
+    setPending(true)
+    try {
+      const res = await createApiToken({ data: { name: trimmed } })
+      setCreated({ id: res.id, name: trimmed, token: res.token })
+      setName('')
+      await router.invalidate()
+    } catch (err) {
+      setError(errorMessage(err, 'Could not create the token.'))
+    } finally {
+      setPending(false)
+    }
+  }
+
+  async function confirmRevoke() {
+    if (!revoking) return
+    setRevokePending(true)
+    setRevokeError(null)
+    try {
+      await revokeApiToken({ data: { id: revoking.id } })
+      if (created?.id === revoking.id) setCreated(null)
+      await router.invalidate()
+      setRevoking(null)
+    } catch (err) {
+      setRevokeError(errorMessage(err, 'Could not revoke the token.'))
+    } finally {
+      setRevokePending(false)
+    }
+  }
+
+  const mcpUrl = `${origin}/api/mcp`
+  const claudeCode = created ? `claude mcp add --transport http clientflare ${mcpUrl} --header "Authorization: Bearer ${created.token}"` : ''
+  const jsonConfig = created
+    ? JSON.stringify({ mcpServers: { clientflare: { url: mcpUrl, headers: { Authorization: `Bearer ${created.token}` } } } }, null, 2)
+    : ''
+  const desktopConfig = created
+    ? JSON.stringify(
+        { mcpServers: { clientflare: { command: 'npx', args: ['-y', 'mcp-remote', mcpUrl, '--header', `Authorization: Bearer ${created.token}`] } } },
+        null,
+        2,
+      )
+    : ''
+
+  return (
+    <div className="flex max-w-2xl flex-col gap-4">
+      <Card>
+        <CardHeader
+          title="API & MCP"
+          description="Personal tokens let Claude, Cursor or any MCP client act as you in this workspace."
+        />
+        <div className="flex flex-col gap-2 p-4 text-sm text-fg-muted">
+          <p>
+            Each token is tied to you and to <span className="font-medium text-fg">{app.workspace.name}</span>. It can do what you can do here, nothing more.
+            Revoking a token cuts access immediately.
+          </p>
+          <p>
+            <span className="font-medium text-fg">What it can do:</span> search, contacts, companies, deals, tasks, timeline notes, draft invoices and a finance
+            summary. Invoices are only ever created as drafts over MCP, so nothing gets sent without you.
+          </p>
+        </div>
+      </Card>
+
+      <Card>
+        <CardHeader title="Create a token" description="Name it after the app that will use it." />
+        <form onSubmit={onCreate} className="flex flex-col gap-3 p-4 sm:flex-row sm:items-end" noValidate>
+          <Field label="Name" htmlFor="api-token-name" className="flex-1" error={error}>
+            <Input
+              id="api-token-name"
+              autoComplete="off"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Claude Desktop"
+              maxLength={60}
+              aria-invalid={!!error}
+            />
+          </Field>
+          <Button type="submit" variant="primary" pending={pending} className={error ? 'sm:mb-[26px]' : ''}>
+            Create token
+          </Button>
+        </form>
+        {created && (
+          <div className="flex flex-col gap-4 border-t border-border p-4">
+            <div className="flex flex-col gap-2 rounded-md border border-transparent bg-accent-soft p-3 text-accent-soft-fg">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-sm font-medium">New token: {created.name}</p>
+                <CopyButton text={created.token} label="Copy token" />
+              </div>
+              <code className="block rounded border border-border bg-surface px-2.5 py-2 font-mono text-[12px] break-all text-fg select-all">{created.token}</code>
+            </div>
+            <Notice tone="warn">Copy it now. This token will not be shown again.</Notice>
+            {origin && (
+              <>
+                <CodeBlock label="Claude Code" code={claudeCode} />
+                <CodeBlock label="Cursor, Windsurf, VS Code" code={jsonConfig} />
+                <CodeBlock label="Claude Desktop" code={desktopConfig} />
+                <p className="text-[13px] text-fg-muted">
+                  Claude Desktop only runs local (stdio) servers, so this goes through <span className="font-mono">mcp-remote</span>. claude.ai web connectors need
+                  OAuth, which is not supported yet.
+                </p>
+              </>
+            )}
+            <div>
+              <Button size="sm" variant="ghost" onClick={() => setCreated(null)}>
+                Done, hide it
+              </Button>
+            </div>
+          </div>
+        )}
+      </Card>
+
+      <Card>
+        <CardHeader title="Your tokens" description={`${tokens.length} ${tokens.length === 1 ? 'token' : 'tokens'} in this workspace`} />
+        {tokens.length === 0 ? (
+          <EmptyState icon={<IconLock />} title="No tokens yet" body="Create one above to connect Claude, Cursor or another MCP client." />
+        ) : (
+          <ul className="divide-y divide-border">
+            {tokens.map((t) => (
+              <li key={t.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-3">
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium">{t.name}</p>
+                  <p className="text-[13px] text-fg-muted">
+                    <span className="font-mono">{t.tokenPrefix}…</span> · created {formatDay(toDay(t.createdAt))} · last used{' '}
+                    {t.lastUsedAt ? formatDay(toDay(t.lastUsedAt)) : 'Never'}
+                  </p>
+                </div>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => {
+                    setRevokeError(null)
+                    setRevoking(t)
+                  }}
+                >
+                  Revoke
+                </Button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Card>
+
+      <ConfirmDialog
+        open={!!revoking}
+        onClose={() => setRevoking(null)}
+        onConfirm={confirmRevoke}
+        pending={revokePending}
+        error={revokeError}
+        confirmLabel="Revoke"
+        title={`Revoke ${revoking?.name ?? 'token'}?`}
+        body="Anything using this token loses access right away. This can't be undone."
+      />
     </div>
   )
 }

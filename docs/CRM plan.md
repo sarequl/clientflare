@@ -95,11 +95,13 @@ Built in this order so the tool is useful for personal work from the first phase
 - [x] Invoices (PDF, statuses), paid invoice → income
 - [x] Client portal (invite-only, magic link)
 - [x] Dashboard and global search
-- [ ] Setup wizard and public OSS release
+- [x] Setup wizard
+- [x] MCP server with personal API tokens (pulled forward from later phases)
+- [ ] Public OSS release
 
 **Phase 3: v1.x**
 
-- [ ] Public REST API, API tokens, outgoing webhooks
+- [ ] Public REST API, outgoing webhooks (API tokens shipped in v1)
 - [ ] Payment links and payment webhooks (Stripe, Lemon Squeezy, Paddle)
 - [ ] Quotes → invoice, recurring invoices, overdue reminders
 - [ ] Projects and time tracking
@@ -119,7 +121,7 @@ Built in this order so the tool is useful for personal work from the first phase
 - [ ] Multiple pipelines, forecasting, custom reports
 - [ ] Branded portal domain, approvals, online invoice payment in portal
 - [ ] Finance: profit basis, SMS forwarding import (undecided), zakat calculator
-- [ ] AI summaries and drafts (Workers AI), MCP server
+- [ ] AI summaries and drafts (Workers AI)
 - [ ] Native mobile apps, backups to R2, audit log, custom roles
 
 ## Open questions

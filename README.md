@@ -1,10 +1,19 @@
 # Clientflare
 
-A free, self-hosted CRM for freelancers, indie hackers and small agencies. Deploys to your own Cloudflare account in one click and runs on the Workers free tier for a solo user. Your data stays in your D1 database.
+A free, self-hosted CRM and invoicing app for freelancers and small agencies. Deploys to your own Cloudflare account in one click, runs on the Workers free tier for a solo user, and your data stays in your own D1 database.
 
 [![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/sarequl/clientflare)
 
-> Phase 1. Auth, workspaces and the finance module (income, expenses, set-asides, payouts) are here. Contacts, deals, invoices and the client portal come in Phase 2. See [docs/CRM plan.md](docs/CRM%20plan.md).
+**What you get**
+
+- Contacts and companies with tags, custom fields, CSV import/export and a timeline of notes, calls and changes
+- Deals on a drag-and-drop pipeline with win/loss tracking
+- Tasks with a morning digest email
+- Invoices: draft, send, mark paid, printable public link; paid invoices flow into income automatically
+- Personal finance: income, expenses, set-aside rules (tax, savings) and payouts, per currency
+- A client portal where customers can see their invoices, shared notes and files
+- Workspaces with owner/admin/member roles and email invites
+- An MCP server, so Claude or any MCP client can work your CRM for you
 
 ## Stack
 
@@ -13,7 +22,7 @@ A free, self-hosted CRM for freelancers, indie hackers and small agencies. Deplo
 | Runtime | Cloudflare Workers, one Worker | One deploy, free tier |
 | App | TanStack Start (React 19, Vite) served from the Worker | SSR + server functions, no separate API |
 | Database | D1 via Drizzle ORM | SQLite you already own |
-| Files | R2 | Phase 2 |
+| Files | R2 | Attachments on records, shared to the portal when you choose |
 | Auth | Better Auth (email + password, magic link, organizations) | Workspaces, memberships and roles for free |
 | Email | Resend | Swap for Cloudflare Email Sending later, one function |
 | Styling | Tailwind v4 | |
@@ -28,6 +37,19 @@ pnpm dev                         # http://localhost:3000
 ```
 
 Without `RESEND_API_KEY`, sign-in links and invites are printed to the terminal instead of sent.
+
+## Talk to it from Claude (MCP)
+
+Every deployment is an MCP server at `/api/mcp` (streamable HTTP). Create a personal token under **Settings → API & MCP**, then:
+
+```sh
+claude mcp add --transport http clientflare https://your-app.workers.dev/api/mcp \
+  --header "Authorization: Bearer cf_…"
+```
+
+For Claude Desktop, Cursor and friends, the settings page gives you the JSON block to paste. A token acts as you inside one workspace, so everything it does shows up on the timeline under your name.
+
+Tools: `search`, `whoami`, contacts (list/get/create/update), companies (list/get/create), deals (list/get/create/move, `list_stages`), tasks (list/create/complete), `log_activity` for notes, calls, meetings and emails, invoices (list/get/create as draft only), `finance_summary`. Sending an invoice stays a human action in the app.
 
 ## Deploy by hand
 

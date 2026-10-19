@@ -26,6 +26,7 @@ Secrets go in `.dev.vars` (copy from `.dev.vars.example`). Without `RESEND_API_K
 - **Every business table has `workspace_id`.** Personal finance tables (`set_aside_rules`, `allocations`, `payouts`) have `user_id` instead and are private to that user.
 - **Money is integer minor units** with a `currency` column on every row. Use `parseMoney` / `formatMoney` / `shareBp` from `src/lib/money.ts`. Percents are basis points (2000 = 20%).
 - **Ids** come from `newId()` in `src/lib/ids.ts` (time-ordered UUID). Better Auth uses it too via `advanced.database.generateId`.
+- **Bearer tokens**: `requireSession` checks `Authorization: Bearer cf_…` before cookies and builds a synthetic session for the token owner in the token's workspace. Anything that must work over MCP (every server function a tool calls) has to avoid Better Auth's cookie-only `auth.api.*` calls; read membership from D1 instead (`requireRole`, `getAppContext` already do).
 - **Server functions** live in `src/features/<module>/server.ts`, use `.validator(zodSchema)`, and gate with `requireSession` / `requireWorkspace` / `requireRole` from `src/lib/session.ts`. Those helpers are wrapped in `createServerOnlyFn`; keep it that way or the client bundle breaks on import protection.
 - **D1 has no interactive transactions.** Use `db.batch([...])` for multi-statement writes.
 - **Bindings** come from `import { env } from 'cloudflare:workers'`. Never construct auth or db at module top level; use `getAuth()` / `getDb()`.
@@ -35,13 +36,14 @@ Secrets go in `.dev.vars` (copy from `.dev.vars.example`). Without `RESEND_API_K
 
 ## Modules (src/features)
 
-finance (incomes, expenses, set-asides, payouts; `recordIncome` is the shared writer), workspaces, contacts, companies, tags, custom-fields, activities (timeline; `activityInsert` returns a statement for batching, `diffFields` builds the `updated` meta), csv, deals (default pipeline is created lazily by `ensureDefaultPipeline`; `moveDeal` owns status + ordering), tasks (`runTaskReminders` runs from the hourly cron in `src/server.ts`, 08:00 workspace-local, one digest per user per day), files (R2; upload/download are raw routes under `src/routes/api/files/`), invoices (draft → sent assigns the number; paid calls `recordIncome`; "PDF" is the print view of `/i/:token`), portal (contact magic links, `cf_portal` cookie, hashed tokens, `portalSessionFromHeaders`), search (LIKE across four tables).
+finance (incomes, expenses, set-asides, payouts; `recordIncome` is the shared writer), workspaces, contacts, companies, tags, custom-fields, activities (timeline; `activityInsert` returns a statement for batching, `diffFields` builds the `updated` meta), csv, deals (default pipeline is created lazily by `ensureDefaultPipeline`; `moveDeal` owns status + ordering), tasks (`runTaskReminders` runs from the hourly cron in `src/server.ts`, 08:00 workspace-local, one digest per user per day), files (R2; upload/download are raw routes under `src/routes/api/files/`), invoices (draft → sent assigns the number; paid calls `recordIncome`; "PDF" is the print view of `/i/:token`), portal (contact magic links, `cf_portal` cookie, hashed tokens, `portalSessionFromHeaders`), search (LIKE across four tables), api-tokens (personal `cf_` bearer tokens, SHA-256 stored, one workspace each), mcp (`createMcpServer` registers tools that call the other modules' server functions; route is `src/routes/api/mcp.ts`, stateless streamable HTTP; probe it with `node scripts/mcp-probe.mjs <token>` against `pnpm dev`).
 
 Polymorphic records: tags, custom fields, activities and files key on `(recordType, recordId)` with no FK, so each module's delete fn cleans them up in a batch. Pure logic that the UI also needs lives in `src/lib/` (`money`, `invoice-math`, `csv`) so it stays out of the server bundle.
 
 ## Gotchas
 
 - pnpm on this machine enforces a minimum release age. Don't `pnpm add x@latest` the day a release lands; pin a day back. `allowBuilds` lives in `pnpm-workspace.yaml`.
+- A `typeof getAuth` (or any server-only symbol) inside a type alias in a file the client imports keeps that import alive in the client bundle and breaks the build on `cloudflare:workers`. Derive types from server functions instead (`typeof getSession`).
 - `wrangler types` only sees secrets when `.dev.vars` exists. `src/env.d.ts` declares them so types never vanish.
 - `wrangler.jsonc` has no D1 `database_id` on purpose: wrangler provisions D1/R2 by name on first deploy, and the deploy button does the same.
 - `APP_URL` is optional. `appOrigin()` in `src/lib/origin.ts` returns it, or the current request's origin (AsyncLocalStorage set in `src/server.ts`). Cron has no request, so it uses `workspace_settings.app_origin`, which `getAppContext` keeps current.
