@@ -17,7 +17,8 @@
     "db:migrate": "wrangler d1 migrations apply DB --local",
     "db:migrate:remote": "wrangler d1 migrations apply DB --remote",
     "db:studio": "drizzle-kit studio",
-    "test": "node --test --experimental-strip-types \"tests/*.test.ts\""
+    "test": "node --test --experimental-strip-types \"tests/*.test.ts\"",
+    "seed:demo": "node --experimental-strip-types scripts/seed-demo.ts"
   },
   "dependencies": {
     "@better-auth/drizzle-adapter": "1.7.10",
