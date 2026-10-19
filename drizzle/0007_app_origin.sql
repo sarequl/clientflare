@@ -1,0 +1,1 @@
+ALTER TABLE `workspace_settings` ADD `app_origin` text;

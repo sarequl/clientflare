@@ -7,15 +7,18 @@ import { getDb, schema } from '#/db'
 import { newId } from '#/lib/ids'
 import { linkMail, sendMail } from '#/lib/email'
 import { hashPassword, verifyPassword } from '#/lib/password'
+import { appOrigin } from '#/lib/origin'
 
 function createAuth() {
   const db = getDb()
   return betterAuth({
     appName: 'Clientflare',
-    baseURL: env.APP_URL,
+    // Empty APP_URL: derive the base URL from each request. Cloudflare only routes
+    // this Worker's own hostnames here, so trusting the request host is safe.
+    baseURL: env.APP_URL || { allowedHosts: ['*'] },
     secret: env.BETTER_AUTH_SECRET,
-    // Local dev may run several vite servers on neighbouring ports.
-    trustedOrigins: env.APP_URL.startsWith('http://localhost') ? ['http://localhost:3000', 'http://localhost:3001', 'http://localhost:3002', 'http://localhost:3003'] : [],
+    // Trust the origin the request came from (plus APP_URL when set).
+    trustedOrigins: (request) => [request ? new URL(request.url).origin : null, env.APP_URL || null],
     database: drizzleAdapter(db, { provider: 'sqlite', schema }),
     advanced: {
       database: { generateId: () => newId() },
@@ -64,7 +67,7 @@ function createAuth() {
         creatorRole: 'owner',
         invitationExpiresIn: 60 * 60 * 24 * 7,
         sendInvitationEmail: async (data) => {
-          const url = `${env.APP_URL}/invite/${data.id}`
+          const url = `${appOrigin()}/invite/${data.id}`
           await sendMail(
             linkMail({
               to: data.email,

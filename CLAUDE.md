@@ -43,8 +43,9 @@ Polymorphic records: tags, custom fields, activities and files key on `(recordTy
 
 - pnpm on this machine enforces a minimum release age. Don't `pnpm add x@latest` the day a release lands; pin a day back. `onlyBuiltDependencies` lives in `pnpm-workspace.yaml`.
 - `wrangler types` only sees secrets when `.dev.vars` exists. `src/env.d.ts` declares them so types never vanish.
-- Deploy button needs a public GitHub repo and default resource names in `wrangler.jsonc`; Cloudflare provisions D1/R2 and rewrites the ids.
+- `wrangler.jsonc` has no D1 `database_id` on purpose: wrangler provisions D1/R2 by name on first deploy, and the deploy button does the same.
+- `APP_URL` is optional. `appOrigin()` in `src/lib/origin.ts` returns it, or the current request's origin (AsyncLocalStorage set in `src/server.ts`). Cron has no request, so it uses `workspace_settings.app_origin`, which `getAppContext` keeps current.
 
 ## Roadmap pointer
 
-Phase 1 (auth, workspaces, finance) and the Phase 2 backend are done. Remaining for v1: setup wizard, polish, public OSS release. See the roadmap in `docs/CRM plan.md`.
+v1 (Phase 1 + Phase 2) is complete. Repo: github.com/sarequl/clientflare. See the roadmap in `docs/CRM plan.md`.

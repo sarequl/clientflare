@@ -8,15 +8,15 @@
   "observability": { "enabled": true },
   "upload_source_maps": true,
   "vars": {
-    // Public URL of this deployment. Used for auth cookies, magic links and invites.
-    "APP_URL": "http://localhost:3000",
+    // Optional. Leave empty and the app uses the URL it is served from (workers.dev or a custom domain).
+    // Set it only if you serve the app from more than one hostname.
+    "APP_URL": "",
     "EMAIL_FROM": "Clientflare <noreply@example.com>"
   },
   "d1_databases": [
     {
       "binding": "DB",
       "database_name": "clientflare-db",
-      "database_id": "local-placeholder",
       "migrations_dir": "./drizzle"
     }
   ],

@@ -1,6 +1,6 @@
 import { createServerFn, createServerOnlyFn } from '@tanstack/react-start'
 import { getRequestHeaders } from '@tanstack/react-start/server'
-import { env } from 'cloudflare:workers'
+import { appOrigin } from '#/lib/origin'
 import { and, desc, eq, inArray, or, sql } from 'drizzle-orm'
 import { z } from 'zod'
 import { getDb, schema } from '#/db'
@@ -75,7 +75,7 @@ const sendPortalLink = createServerOnlyFn(async (accessId: string, email: string
   const token = randomToken()
   const org = await db.query.organization.findFirst({ where: eq(schema.organization.id, workspaceId), columns: { name: true } })
   await db.insert(schema.portalLinks).values({ tokenHash: await sha256Hex(token), accessId, expiresAt: new Date(Date.now() + LINK_TTL_MS), createdAt: new Date() })
-  const url = `${env.APP_URL}/api/portal/auth?token=${token}`
+  const url = `${appOrigin()}/api/portal/auth?token=${token}`
   await sendMail(
     linkMail({
       to: email,

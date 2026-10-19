@@ -33,13 +33,12 @@ Without `RESEND_API_KEY`, sign-in links and invites are printed to the terminal 
 
 ```sh
 wrangler login
-wrangler d1 create clientflare-db        # paste the id into wrangler.jsonc
-wrangler r2 bucket create clientflare-files
+pnpm deploy                              # build, deploy (D1 + R2 are provisioned on first run), migrate remote D1
 wrangler secret put BETTER_AUTH_SECRET   # openssl rand -base64 32
-wrangler secret put RESEND_API_KEY
-# set APP_URL and EMAIL_FROM in wrangler.jsonc vars
-pnpm deploy                              # build, migrate remote D1, deploy
+wrangler secret put RESEND_API_KEY       # optional until you want sign-in links and invites emailed
 ```
+
+`APP_URL` can stay empty: the app uses whatever hostname it is served from, including a custom domain. Set `EMAIL_FROM` in `wrangler.jsonc` to a sender your Resend account verifies.
 
 ## Schema changes
 

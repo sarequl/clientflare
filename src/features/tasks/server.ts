@@ -188,9 +188,9 @@ const DIGEST_HOUR = 8
  * For every workspace whose local time is DIGEST_HOUR, email each assignee one
  * digest of tasks due today or overdue. Idempotent per (workspace, user, day).
  */
-export const runTaskReminders = createServerOnlyFn(async (appUrl: string, now = new Date()) => {
+export const runTaskReminders = createServerOnlyFn(async (appUrl: string | null, now = new Date()) => {
   const db = getDb()
-  const workspaces = await db.select({ id: schema.organization.id, name: schema.organization.name, timezone: schema.workspaceSettings.timezone }).from(schema.organization).leftJoin(schema.workspaceSettings, eq(schema.workspaceSettings.organizationId, schema.organization.id))
+  const workspaces = await db.select({ id: schema.organization.id, name: schema.organization.name, timezone: schema.workspaceSettings.timezone, appOrigin: schema.workspaceSettings.appOrigin }).from(schema.organization).leftJoin(schema.workspaceSettings, eq(schema.workspaceSettings.organizationId, schema.organization.id))
   let sent = 0
   for (const ws of workspaces) {
     const tz = ws.timezone ?? 'UTC'
@@ -201,6 +201,8 @@ export const runTaskReminders = createServerOnlyFn(async (appUrl: string, now = 
       hour = now.getUTCHours()
     }
     if (hour !== DIGEST_HOUR) continue
+    const base = appUrl || ws.appOrigin
+    if (!base) continue // nobody has opened this workspace yet, so no link to send
     const today = todayIn(tz, now)
     const due = await db
       .select({ id: schema.tasks.id, title: schema.tasks.title, dueOn: schema.tasks.dueOn, assigneeUserId: schema.tasks.assigneeUserId })
@@ -227,7 +229,7 @@ export const runTaskReminders = createServerOnlyFn(async (appUrl: string, now = 
           heading: `Good morning, ${u.name}`,
           body: lines.replace(/\n/g, '<br>'),
           cta: 'Open tasks',
-          url: `${appUrl}/app/tasks`,
+          url: `${base}/app/tasks`,
         }),
       )
       await db.insert(schema.taskDigests).values({ workspaceId: ws.id, userId, sentOn: today }).onConflictDoNothing()

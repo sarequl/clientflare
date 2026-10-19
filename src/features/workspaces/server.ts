@@ -2,6 +2,7 @@ import { createServerFn } from '@tanstack/react-start'
 import { getRequestHeaders } from '@tanstack/react-start/server'
 import { eq } from 'drizzle-orm'
 import { z } from 'zod'
+import { appOrigin } from '#/lib/origin'
 import { getAuth } from '#/lib/auth'
 import { getDb, schema } from '#/db'
 import { requireSession, requireWorkspace, requireRole } from '#/lib/session'
@@ -55,6 +56,10 @@ export const getAppContext = createServerFn({ method: 'GET' }).handler(async () 
   ])
   const active = orgs.find((o) => o.id === ctx.workspaceId)
   if (!active) throw new Error('Active workspace not found')
+  const origin = appOrigin()
+  if (settings && settings.appOrigin !== origin) {
+    await getDb().update(schema.workspaceSettings).set({ appOrigin: origin }).where(eq(schema.workspaceSettings.organizationId, ctx.workspaceId))
+  }
   return {
     user: { id: ctx.user.id, name: ctx.user.name, email: ctx.user.email },
     workspaces: orgs.map((o) => ({ id: o.id, name: o.name, slug: o.slug })),
