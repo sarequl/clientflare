@@ -8,6 +8,7 @@ import { requireRole, requireWorkspace } from '#/lib/session'
 import { activityInsert } from '#/features/activities/server'
 import { recordIncome } from '#/features/finance/server'
 import { computeTotals } from '#/lib/invoice-math'
+import { HEX_COLOR, INVOICE_TEMPLATE_IDS, resolveTemplateId } from '#/lib/invoice-templates'
 
 const ISO_DATE = z.string().regex(/^\d{4}-\d{2}-\d{2}$/)
 const CURRENCY = z.string().regex(/^[A-Z]{3}$/)
@@ -136,6 +137,8 @@ function businessBlock(s: typeof schema.workspaceSettings.$inferSelect | undefin
     email: s?.businessEmail ?? null,
     taxId: s?.taxId ?? null,
     footer: s?.invoiceFooter ?? null,
+    template: resolveTemplateId(s?.invoiceTemplate),
+    accent: s?.invoiceAccent ?? null,
   }
 }
 
@@ -430,6 +433,8 @@ export const getInvoiceSettings = createServerFn({ method: 'GET' }).handler(asyn
     defaultTaxRateBp: s?.defaultTaxRateBp ?? 0,
     defaultPaymentTermsDays: s?.defaultPaymentTermsDays ?? 14,
     invoiceFooter: s?.invoiceFooter ?? '',
+    invoiceTemplate: resolveTemplateId(s?.invoiceTemplate),
+    invoiceAccent: s?.invoiceAccent ?? null,
   }
 })
 
@@ -445,6 +450,9 @@ export const updateInvoiceSettings = createServerFn({ method: 'POST' })
       defaultTaxRateBp: z.number().int().min(0).max(10_000),
       defaultPaymentTermsDays: z.number().int().min(0).max(365),
       invoiceFooter: z.string().trim().max(2000),
+      // Optional so callers that don't show the design (the setup wizard) leave it alone.
+      invoiceTemplate: z.enum(INVOICE_TEMPLATE_IDS).optional(),
+      invoiceAccent: z.string().regex(HEX_COLOR).nullable().optional(),
     }),
   )
   .handler(async ({ data }) => {
@@ -460,6 +468,8 @@ export const updateInvoiceSettings = createServerFn({ method: 'POST' })
       defaultTaxRateBp: data.defaultTaxRateBp,
       defaultPaymentTermsDays: data.defaultPaymentTermsDays,
       invoiceFooter: data.invoiceFooter || null,
+      ...(data.invoiceTemplate !== undefined && { invoiceTemplate: data.invoiceTemplate }),
+      ...(data.invoiceAccent !== undefined && { invoiceAccent: data.invoiceAccent?.toLowerCase() ?? null }),
       updatedAt: now,
     }
     await getDb()

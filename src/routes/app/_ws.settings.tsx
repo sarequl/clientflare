@@ -29,6 +29,10 @@ import { createApiToken, listApiTokens, revokeApiToken } from '#/features/api-to
 import { IconCheck } from '#/components/icons'
 import { IconCopy } from '#/components/icons-invoice'
 import { IconLock } from '#/components/icons2'
+import { InvoiceDocument } from '#/components/InvoiceDocument'
+import { INVOICE_TEMPLATES } from '#/components/invoice-templates'
+import { SAMPLE_INVOICE } from '#/components/invoice-templates/sample'
+import { HEX_COLOR, resolveAccent, type InvoiceTemplateId } from '#/lib/invoice-templates'
 
 const TABS = ['workspace', 'members', 'pipeline', 'invoicing', 'tags', 'fields', 'personal', 'api'] as const
 type Tab = (typeof TABS)[number]
@@ -184,6 +188,9 @@ function InvoicingTab({ settings }: { settings: InvoiceSettings }) {
     defaultPaymentTermsDays: String(settings.defaultPaymentTermsDays),
     invoiceFooter: settings.invoiceFooter,
   })
+  const [template, setTemplate] = useState<InvoiceTemplateId>(settings.invoiceTemplate)
+  // Raw text of the hex field. Empty means "use the template default".
+  const [accentText, setAccentText] = useState(settings.invoiceAccent ?? '')
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [pending, setPending] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -204,6 +211,7 @@ function InvoicingTab({ settings }: { settings: InvoiceSettings }) {
     if (!Number.isInteger(terms) || terms < 0 || terms > 365) errs.terms = 'Use 0 to 365 days.'
     if (tax === null) errs.tax = 'Use a percent between 0 and 100.'
     if (form.businessEmail.trim() && !/^\S+@\S+\.\S+$/.test(form.businessEmail.trim())) errs.email = 'Enter a valid email.'
+    if (accentText.trim() && !HEX_COLOR.test(normalizeHex(accentText))) errs.accent = 'Use a hex colour like #2563eb.'
     setErrors(errs)
     if (Object.keys(errs).length) return
     setPending(true)
@@ -219,6 +227,8 @@ function InvoicingTab({ settings }: { settings: InvoiceSettings }) {
           defaultTaxRateBp: tax ?? 0,
           defaultPaymentTermsDays: terms,
           invoiceFooter: form.invoiceFooter.trim(),
+          invoiceTemplate: template,
+          invoiceAccent: accentText.trim() ? normalizeHex(accentText) : null,
         },
       })
       await router.invalidate()
@@ -275,6 +285,20 @@ function InvoicingTab({ settings }: { settings: InvoiceSettings }) {
           </Field>
         </div>
       </Card>
+      <TemplatePicker
+        template={template}
+        onTemplate={setTemplate}
+        accentText={accentText}
+        onAccentText={setAccentText}
+        accentError={errors.accent}
+        editable={editable}
+        business={{
+          name: form.businessName.trim() || app.workspace.name,
+          address: form.businessAddress.trim() || null,
+          email: form.businessEmail.trim() || null,
+          taxId: form.taxId.trim() || null,
+        }}
+      />
       {error && <Notice tone="danger">{error}</Notice>}
       {saved && !error && <Notice tone="accent">Saved.</Notice>}
       {editable && (
@@ -285,6 +309,107 @@ function InvoicingTab({ settings }: { settings: InvoiceSettings }) {
         </div>
       )}
     </form>
+  )
+}
+
+/** "2563EB" / "#2563EB" → "#2563eb". Anything else comes back trimmed, for the validator to reject. */
+function normalizeHex(input: string) {
+  const s = input.trim().toLowerCase()
+  return /^[0-9a-f]{6}$/.test(s) ? `#${s}` : s
+}
+
+/** A4 at 96dpi. Thumbnails render the real template at this width, then scale it down. */
+const SHEET_PX = 794
+const THUMB_SCALE = 0.16
+
+function TemplatePicker({
+  template,
+  onTemplate,
+  accentText,
+  onAccentText,
+  accentError,
+  editable,
+  business,
+}: {
+  template: InvoiceTemplateId
+  onTemplate: (id: InvoiceTemplateId) => void
+  accentText: string
+  onAccentText: (v: string) => void
+  accentError?: string
+  editable: boolean
+  business: { name: string; address: string | null; email: string | null; taxId: string | null }
+}) {
+  const typed = normalizeHex(accentText)
+  // What the thumbnails paint with: the typed colour once it's valid, else each template's default.
+  const accent = HEX_COLOR.test(typed) ? typed : null
+  const swatch = resolveAccent(template, accent)
+
+  return (
+    <Card>
+      <CardHeader title="Template" description={editable ? 'How invoices look on screen, in print and on the share link.' : 'Only owners and admins can change these.'} />
+      <div className="flex flex-col gap-5 p-4">
+        <div role="radiogroup" aria-label="Invoice template" className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          {INVOICE_TEMPLATES.map((t) => {
+            const selected = t.id === template
+            return (
+              <button
+                key={t.id}
+                type="button"
+                role="radio"
+                aria-checked={selected}
+                disabled={!editable}
+                onClick={() => onTemplate(t.id)}
+                className={`group flex min-w-0 flex-col gap-2 rounded-lg border p-2 text-left transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-default ${
+                  selected ? 'border-accent ring-1 ring-accent' : 'border-border enabled:hover:border-border-strong'
+                } ${!editable && !selected ? 'opacity-60' : ''}`}
+              >
+                <div aria-hidden inert className="relative h-[160px] w-full overflow-hidden rounded-md bg-neutral-200/70">
+                  <div className="pointer-events-none absolute top-2 left-1/2 origin-top -translate-x-1/2 bg-white" style={{ width: SHEET_PX, minHeight: SHEET_PX * 1.414, scale: String(THUMB_SCALE) }}>
+                    <InvoiceDocument invoice={SAMPLE_INVOICE} business={business} template={t.id} accent={accent} />
+                  </div>
+                </div>
+                <div className="min-w-0 px-0.5 pb-0.5">
+                  <p className="flex items-center gap-1.5 text-[13px] font-medium text-fg">
+                    {t.name}
+                    {selected && <IconCheck size={13} className="text-accent" />}
+                  </p>
+                  <p className="text-[12px] leading-snug text-fg-muted">{t.description}</p>
+                </div>
+              </button>
+            )
+          })}
+        </div>
+        <Field label="Accent colour" htmlFor="inv-accent" error={accentError} hint={accent ? undefined : 'Using the template default.'}>
+          <div className="flex items-center gap-2">
+            <input
+              type="color"
+              aria-label="Pick accent colour"
+              value={swatch}
+              onChange={(e) => onAccentText(e.target.value)}
+              disabled={!editable}
+              className="h-9 w-11 shrink-0 cursor-pointer rounded-md border border-border-strong bg-surface p-1 disabled:cursor-default"
+            />
+            <Input
+              id="inv-accent"
+              value={accentText}
+              onChange={(e) => onAccentText(e.target.value)}
+              placeholder={swatch}
+              maxLength={7}
+              spellCheck={false}
+              autoComplete="off"
+              aria-invalid={!!accentError}
+              className="max-w-32 font-mono"
+              disabled={!editable}
+            />
+            {editable && accentText && (
+              <Button type="button" variant="ghost" size="sm" onClick={() => onAccentText('')}>
+                Reset
+              </Button>
+            )}
+          </div>
+        </Field>
+      </div>
+    </Card>
   )
 }
 

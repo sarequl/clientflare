@@ -18,6 +18,10 @@ export const workspaceSettings = sqliteTable('workspace_settings', {
   defaultTaxRateBp: integer('default_tax_rate_bp').notNull().default(0),
   defaultPaymentTermsDays: integer('default_payment_terms_days').notNull().default(14),
   invoiceFooter: text('invoice_footer'),
+  /** Invoice design id, see INVOICE_TEMPLATES. Unknown ids render as classic. */
+  invoiceTemplate: text('invoice_template').notNull().default('classic'),
+  /** Accent colour for the invoice template, '#rrggbb'. Null uses the template default. */
+  invoiceAccent: text('invoice_accent'),
   /** Last origin the app was opened from. Cron emails link here when APP_URL is unset. */
   appOrigin: text('app_origin'),
   /** Set when the first-run wizard finishes (or is skipped). */
