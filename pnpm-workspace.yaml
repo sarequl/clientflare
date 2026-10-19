@@ -1,5 +1,5 @@
-onlyBuiltDependencies:
-  - esbuild
-  - lightningcss
-  - sharp
-  - workerd
+allowBuilds:
+  esbuild: true
+  lightningcss: true
+  sharp: true
+  workerd: true

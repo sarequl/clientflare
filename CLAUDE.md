@@ -41,7 +41,7 @@ Polymorphic records: tags, custom fields, activities and files key on `(recordTy
 
 ## Gotchas
 
-- pnpm on this machine enforces a minimum release age. Don't `pnpm add x@latest` the day a release lands; pin a day back. `onlyBuiltDependencies` lives in `pnpm-workspace.yaml`.
+- pnpm on this machine enforces a minimum release age. Don't `pnpm add x@latest` the day a release lands; pin a day back. `allowBuilds` lives in `pnpm-workspace.yaml`.
 - `wrangler types` only sees secrets when `.dev.vars` exists. `src/env.d.ts` declares them so types never vanish.
 - `wrangler.jsonc` has no D1 `database_id` on purpose: wrangler provisions D1/R2 by name on first deploy, and the deploy button does the same.
 - `APP_URL` is optional. `appOrigin()` in `src/lib/origin.ts` returns it, or the current request's origin (AsyncLocalStorage set in `src/server.ts`). Cron has no request, so it uses `workspace_settings.app_origin`, which `getAppContext` keeps current.
