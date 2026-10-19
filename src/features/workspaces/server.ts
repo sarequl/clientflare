@@ -5,6 +5,7 @@ import { z } from 'zod'
 import { getAuth } from '#/lib/auth'
 import { getDb, schema } from '#/db'
 import { requireSession, requireWorkspace, requireRole } from '#/lib/session'
+import { ensureDefaultPipeline } from '#/features/deals/server'
 
 const CURRENCY = z.string().regex(/^[A-Z]{3}$/, 'Use a 3-letter ISO code')
 
@@ -28,6 +29,7 @@ export const createWorkspace = createServerFn({ method: 'POST' })
       timezone: data.timezone,
       updatedAt: new Date(),
     })
+    await ensureDefaultPipeline(org.id)
     await auth.api.setActiveOrganization({ headers, body: { organizationId: org.id } })
     return { id: org.id, slug: org.slug }
   })

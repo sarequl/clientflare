@@ -30,6 +30,12 @@
   --ring: oklch(0.6 0.13 160);
   --overlay: oklch(0.2 0.01 250 / 0.4);
   --shadow: 0 1px 2px oklch(0.2 0.01 250 / 0.06), 0 8px 24px -8px oklch(0.2 0.01 250 / 0.12);
+  /* Tag chips: lightness/chroma per theme, hue per colour class (.tag-*). */
+  --tag-bg-l: 0.95;
+  --tag-bg-c: 0.045;
+  --tag-fg-l: 0.42;
+  --tag-fg-c: 0.11;
+  --tag-dot-l: 0.66;
 }
 
 .dark {
@@ -57,6 +63,11 @@
   --ring: oklch(0.72 0.13 160);
   --overlay: oklch(0 0 0 / 0.55);
   --shadow: 0 1px 2px oklch(0 0 0 / 0.3), 0 8px 24px -8px oklch(0 0 0 / 0.5);
+  --tag-bg-l: 0.31;
+  --tag-bg-c: 0.055;
+  --tag-fg-l: 0.88;
+  --tag-fg-c: 0.08;
+  --tag-dot-l: 0.72;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -85,6 +96,11 @@
     --ring: oklch(0.72 0.13 160);
     --overlay: oklch(0 0 0 / 0.55);
     --shadow: 0 1px 2px oklch(0 0 0 / 0.3), 0 8px 24px -8px oklch(0 0 0 / 0.5);
+  --tag-bg-l: 0.31;
+  --tag-bg-c: 0.055;
+  --tag-fg-l: 0.88;
+  --tag-fg-c: 0.08;
+  --tag-dot-l: 0.72;
   }
 }
 
@@ -159,6 +175,22 @@
   .tnum {
     font-variant-numeric: tabular-nums;
   }
+  .tag-chip {
+    background: oklch(var(--tag-bg-l) calc(var(--tag-bg-c) * var(--tag-sat, 1)) var(--tag-h, 250));
+    color: oklch(var(--tag-fg-l) calc(var(--tag-fg-c) * var(--tag-sat, 1)) var(--tag-h, 250));
+  }
+  .tag-dot {
+    background: oklch(var(--tag-dot-l) calc(0.15 * var(--tag-sat, 1)) var(--tag-h, 250));
+  }
+  .tag-gray { --tag-h: 250; --tag-sat: 0.12; }
+  .tag-red { --tag-h: 25; }
+  .tag-orange { --tag-h: 55; }
+  .tag-yellow { --tag-h: 90; }
+  .tag-green { --tag-h: 150; }
+  .tag-teal { --tag-h: 190; }
+  .tag-blue { --tag-h: 250; }
+  .tag-purple { --tag-h: 300; }
+  .tag-pink { --tag-h: 350; }
 }
 
 @keyframes cf-spin {

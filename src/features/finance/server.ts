@@ -1,4 +1,4 @@
-import { createServerFn } from '@tanstack/react-start'
+import { createServerFn, createServerOnlyFn } from '@tanstack/react-start'
 import { and, desc, eq, gte, inArray, lte, sql } from 'drizzle-orm'
 import { z } from 'zod'
 import { getDb, schema } from '#/db'
@@ -50,46 +50,54 @@ const incomeInput = z.object({
 /**
  * Record an income and, in the same batch, allocate it across the recorder's
  * active set-aside rules. Percent is snapshotted so editing a rule later does
- * not rewrite history.
+ * not rewrite history. Shared by the finance UI and "invoice paid".
  */
-export const createIncome = createServerFn({ method: 'POST' })
-  .validator(incomeInput)
-  .handler(async ({ data }) => {
-    const ctx = await requireWorkspace()
+export const recordIncome = createServerOnlyFn(
+  async (args: {
+    workspaceId: string
+    userId: string
+    amountMinor: number
+    currency: string
+    receivedOn: string
+    clientName?: string | null
+    source?: string | null
+    note?: string | null
+    invoiceId?: string | null
+    applySetAsides: boolean
+  }) => {
     const db = getDb()
     const now = new Date()
     const incomeId = newId()
-    const rules = data.applySetAsides
+    const rules = args.applySetAsides
       ? await db.query.setAsideRules.findMany({
-          where: and(eq(schema.setAsideRules.userId, ctx.user.id), eq(schema.setAsideRules.active, true)),
+          where: and(eq(schema.setAsideRules.userId, args.userId), eq(schema.setAsideRules.active, true)),
           orderBy: [schema.setAsideRules.sortOrder],
         })
       : []
-
     const incomeRow = {
       id: incomeId,
-      workspaceId: ctx.workspaceId,
-      userId: ctx.user.id,
-      amountMinor: data.amountMinor,
-      currency: data.currency,
-      receivedOn: data.receivedOn,
-      clientName: data.clientName || null,
-      source: data.source || null,
-      note: data.note || null,
+      workspaceId: args.workspaceId,
+      userId: args.userId,
+      amountMinor: args.amountMinor,
+      currency: args.currency,
+      receivedOn: args.receivedOn,
+      clientName: args.clientName || null,
+      source: args.source || null,
+      note: args.note || null,
+      invoiceId: args.invoiceId ?? null,
       createdAt: now,
       updatedAt: now,
     }
     const allocationRows = rules.map((r) => ({
       id: newId(),
-      userId: ctx.user.id,
+      userId: args.userId,
       incomeId,
       ruleId: r.id,
       percentBp: r.percentBp,
-      amountMinor: shareBp(data.amountMinor, r.percentBp),
-      currency: data.currency,
+      amountMinor: shareBp(args.amountMinor, r.percentBp),
+      currency: args.currency,
       createdAt: now,
     }))
-
     // D1 has no interactive transactions. batch() is atomic.
     const incomeInsert = db.insert(schema.incomes).values(incomeRow)
     if (allocationRows.length) {
@@ -98,6 +106,14 @@ export const createIncome = createServerFn({ method: 'POST' })
       await incomeInsert
     }
     return { id: incomeId, allocations: allocationRows.map((a) => ({ ruleId: a.ruleId, amountMinor: a.amountMinor })) }
+  },
+)
+
+export const createIncome = createServerFn({ method: 'POST' })
+  .validator(incomeInput)
+  .handler(async ({ data }) => {
+    const ctx = await requireWorkspace()
+    return recordIncome({ workspaceId: ctx.workspaceId, userId: ctx.user.id, ...data })
   })
 
 export const updateIncome = createServerFn({ method: 'POST' })

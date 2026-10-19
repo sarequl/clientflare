@@ -14,6 +14,8 @@ function createAuth() {
     appName: 'Clientflare',
     baseURL: env.APP_URL,
     secret: env.BETTER_AUTH_SECRET,
+    // Local dev may run several vite servers on neighbouring ports.
+    trustedOrigins: env.APP_URL.startsWith('http://localhost') ? ['http://localhost:3000', 'http://localhost:3001', 'http://localhost:3002', 'http://localhost:3003'] : [],
     database: drizzleAdapter(db, { provider: 'sqlite', schema }),
     advanced: {
       database: { generateId: () => newId() },

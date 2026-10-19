@@ -9,6 +9,7 @@ import {
   IconArrowDown,
   IconArrowUp,
   IconBolt,
+  IconBuilding,
   IconCheck,
   IconChevronDown,
   IconHome,
@@ -18,6 +19,7 @@ import {
   IconPlus,
   IconSend,
   IconSettings,
+  IconUsers,
   IconX,
 } from '#/components/icons'
 
@@ -32,13 +34,26 @@ export const Route = createFileRoute('/app/_ws')({
 
 type AppCtx = Awaited<ReturnType<typeof getAppContext>>
 
-const NAV: { to: string; label: string; Icon: ComponentType<{ size?: number }>; exact?: boolean }[] = [
-  { to: '/app', label: 'Dashboard', Icon: IconHome, exact: true },
-  { to: '/app/finance/incomes', label: 'Incomes', Icon: IconArrowDown },
-  { to: '/app/finance/expenses', label: 'Expenses', Icon: IconArrowUp },
-  { to: '/app/finance/set-asides', label: 'Set-asides', Icon: IconPiggy },
-  { to: '/app/finance/payouts', label: 'Payouts', Icon: IconSend },
-  { to: '/app/settings', label: 'Settings', Icon: IconSettings },
+type NavItem = { to: string; label: string; Icon: ComponentType<{ size?: number }>; exact?: boolean }
+
+const NAV: { label?: string; items: NavItem[] }[] = [
+  {
+    items: [
+      { to: '/app', label: 'Dashboard', Icon: IconHome, exact: true },
+      { to: '/app/contacts', label: 'Contacts', Icon: IconUsers },
+      { to: '/app/companies', label: 'Companies', Icon: IconBuilding },
+    ],
+  },
+  {
+    label: 'Finance',
+    items: [
+      { to: '/app/finance/incomes', label: 'Incomes', Icon: IconArrowDown },
+      { to: '/app/finance/expenses', label: 'Expenses', Icon: IconArrowUp },
+      { to: '/app/finance/set-asides', label: 'Set-asides', Icon: IconPiggy },
+      { to: '/app/finance/payouts', label: 'Payouts', Icon: IconSend },
+    ],
+  },
+  { items: [{ to: '/app/settings', label: 'Settings', Icon: IconSettings }] },
 ]
 
 function WorkspaceShell() {
@@ -137,17 +152,22 @@ function SidebarContent({ app, autoFocus }: { app: AppCtx; autoFocus?: boolean }
         <WorkspaceSwitcher app={app} autoFocus={autoFocus} />
       </div>
       <nav aria-label="Main" className="mt-4 flex flex-1 flex-col gap-0.5 overflow-y-auto px-3">
-        {NAV.map(({ to, label, Icon, exact }) => (
-          <Link
-            key={to}
-            to={to}
-            activeOptions={{ exact: !!exact }}
-            className="flex h-9 items-center gap-2.5 rounded-md px-2.5 text-sm text-fg-muted transition-colors hover:bg-surface-2 hover:text-fg"
-            activeProps={{ className: '!bg-surface-2 !text-fg font-medium', 'aria-current': 'page' }}
-          >
-            <Icon size={16} />
-            {label}
-          </Link>
+        {NAV.map((group, g) => (
+          <div key={g} className={`flex flex-col gap-0.5 ${g > 0 ? 'mt-3' : ''}`}>
+            {group.label && <p className="px-2.5 pb-1 text-[11px] font-semibold tracking-wide text-fg-subtle uppercase">{group.label}</p>}
+            {group.items.map(({ to, label, Icon, exact }) => (
+              <Link
+                key={to}
+                to={to}
+                activeOptions={{ exact: !!exact }}
+                className="flex h-9 items-center gap-2.5 rounded-md px-2.5 text-sm text-fg-muted transition-colors hover:bg-surface-2 hover:text-fg"
+                activeProps={{ className: '!bg-surface-2 !text-fg font-medium', 'aria-current': 'page' }}
+              >
+                <Icon size={16} />
+                {label}
+              </Link>
+            ))}
+          </div>
         ))}
         <Link
           to="/app/quick"

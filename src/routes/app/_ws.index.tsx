@@ -6,7 +6,7 @@ import { MonthPicker } from '#/components/MonthPicker'
 import { Money } from '#/components/Money'
 import { EmptyState } from '#/components/EmptyState'
 import { buttonClass } from '#/components/Button'
-import { IconArrowDown, IconArrowUp, IconBolt, IconPiggy } from '#/components/icons'
+import { IconArrowDown, IconArrowUp, IconBolt, IconPiggy, IconUsers } from '#/components/icons'
 import { useApp } from '#/components/useApp'
 
 export const Route = createFileRoute('/app/_ws/')({
@@ -50,7 +50,10 @@ function Dashboard() {
         <Link to="/app/finance/expenses" search={{ month, add: true }} className={buttonClass('secondary', 'md')}>
           <IconArrowUp /> Add expense
         </Link>
-        <Link to="/app/quick" className={buttonClass('primary', 'md', 'col-span-2 sm:col-span-1')}>
+        <Link to="/app/contacts" search={{ new: true }} className={buttonClass('secondary', 'md')}>
+          <IconUsers /> New contact
+        </Link>
+        <Link to="/app/quick" className={buttonClass('primary', 'md')}>
           <IconBolt /> Quick add
         </Link>
       </div>

@@ -18,8 +18,12 @@ import { EmptyState } from '#/components/EmptyState'
 import { ThemeToggle } from '#/components/ThemeToggle'
 import { TimezoneSelect } from '#/components/TimezoneSelect'
 import { canManage, useApp } from '#/components/useApp'
+import { TagSettings } from '#/components/TagSettings'
+import { FieldSettings } from '#/components/FieldSettings'
+import { listTags } from '#/features/tags/server'
+import { listFields } from '#/features/custom-fields/server'
 
-const TABS = ['workspace', 'members', 'personal'] as const
+const TABS = ['workspace', 'members', 'tags', 'fields', 'personal'] as const
 type Tab = (typeof TABS)[number]
 
 const searchSchema = z.object({ tab: z.enum(TABS).optional().catch(undefined) })
@@ -27,28 +31,37 @@ const searchSchema = z.object({ tab: z.enum(TABS).optional().catch(undefined) })
 export const Route = createFileRoute('/app/_ws/settings')({
   validateSearch: (search: Record<string, unknown>) => searchSchema.parse(search),
   loaderDeps: ({ search }) => ({ tab: search.tab ?? 'workspace' }),
-  loader: async ({ deps }) => ({ members: deps.tab === 'members' ? await listMembers() : null }),
+  loader: async ({ deps }) => {
+    const [members, tags, fields] = await Promise.all([
+      deps.tab === 'members' ? listMembers() : null,
+      deps.tab === 'tags' ? listTags() : null,
+      deps.tab === 'fields'
+        ? Promise.all([listFields({ data: { recordType: 'contact' } }), listFields({ data: { recordType: 'company' } })]).then(([contact, company]) => ({ contact, company }))
+        : null,
+    ])
+    return { members, tags, fields }
+  },
   head: () => ({ meta: [{ title: 'Settings · Clientflare' }] }),
   component: SettingsPage,
 })
 
-const TAB_LABELS: Record<Tab, string> = { workspace: 'Workspace', members: 'Members', personal: 'Personal' }
+const TAB_LABELS: Record<Tab, string> = { workspace: 'Workspace', members: 'Members', tags: 'Tags', fields: 'Custom fields', personal: 'Personal' }
 
 function SettingsPage() {
   const { tab = 'workspace' } = Route.useSearch()
-  const { members } = Route.useLoaderData()
+  const { members, tags, fields } = Route.useLoaderData()
 
   return (
     <>
       <PageHeader title="Settings" />
-      <nav aria-label="Settings sections" className="mb-5 flex gap-1 border-b border-border">
+      <nav aria-label="Settings sections" className="-mx-4 mb-5 flex gap-1 overflow-x-auto border-b border-border px-4 sm:mx-0 sm:px-0">
         {TABS.map((t) => (
           <Link
             key={t}
             from={Route.fullPath}
             search={{ tab: t === 'workspace' ? undefined : t }}
             aria-current={tab === t ? 'page' : undefined}
-            className={`-mb-px border-b-2 px-3 py-2 text-sm transition-colors ${
+            className={`-mb-px shrink-0 border-b-2 px-3 py-2 text-sm whitespace-nowrap transition-colors ${
               tab === t ? 'border-accent font-medium text-fg' : 'border-transparent text-fg-muted hover:text-fg'
             }`}
           >
@@ -58,6 +71,8 @@ function SettingsPage() {
       </nav>
       {tab === 'workspace' && <WorkspaceTab />}
       {tab === 'members' && members && <MembersTab data={members} />}
+      {tab === 'tags' && tags && <TagSettings tags={tags} />}
+      {tab === 'fields' && fields && <FieldSettings fields={fields} />}
       {tab === 'personal' && <PersonalTab />}
     </>
   )
