@@ -57,6 +57,13 @@
       "when": 1792434622319,
       "tag": "0007_app_origin",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1792441097047,
+      "tag": "0008_api_tokens",
+      "breakpoints": true
     }
   ]
 }

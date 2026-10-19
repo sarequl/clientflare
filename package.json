@@ -21,6 +21,7 @@
   },
   "dependencies": {
     "@better-auth/drizzle-adapter": "1.7.10",
+    "@modelcontextprotocol/sdk": "1.32.1",
     "@tailwindcss/vite": "^4.1.18",
     "@tanstack/react-devtools": "0.10.13",
     "@tanstack/react-form": "^1.33.5",

@@ -46,16 +46,21 @@ export const switchWorkspace = createServerFn({ method: 'POST' })
 /** Everything the app shell needs: user, workspaces, active workspace + settings, role. */
 export const getAppContext = createServerFn({ method: 'GET' }).handler(async () => {
   const ctx = await requireWorkspace()
-  const headers = getRequestHeaders()
-  const auth = getAuth()
-  const [orgs, membership, settings, userSettings] = await Promise.all([
-    auth.api.listOrganizations({ headers }),
-    auth.api.getActiveMember({ headers }),
-    getDb().query.workspaceSettings.findFirst({ where: eq(schema.workspaceSettings.organizationId, ctx.workspaceId) }),
-    getDb().query.userSettings.findFirst({ where: eq(schema.userSettings.userId, ctx.user.id) }),
+  const db = getDb()
+  // Plain queries rather than Better Auth's API so this also works for bearer-token sessions (MCP).
+  const [memberships, settings, userSettings] = await Promise.all([
+    db
+      .select({ id: schema.organization.id, name: schema.organization.name, slug: schema.organization.slug, role: schema.member.role })
+      .from(schema.member)
+      .innerJoin(schema.organization, eq(schema.organization.id, schema.member.organizationId))
+      .where(eq(schema.member.userId, ctx.user.id)),
+    db.query.workspaceSettings.findFirst({ where: eq(schema.workspaceSettings.organizationId, ctx.workspaceId) }),
+    db.query.userSettings.findFirst({ where: eq(schema.userSettings.userId, ctx.user.id) }),
   ])
-  const active = orgs.find((o) => o.id === ctx.workspaceId)
+  const orgs = memberships
+  const active = memberships.find((o) => o.id === ctx.workspaceId)
   if (!active) throw new Error('Active workspace not found')
+  const membership = { role: active.role }
   const origin = appOrigin()
   if (settings && settings.appOrigin !== origin) {
     await getDb().update(schema.workspaceSettings).set({ appOrigin: origin }).where(eq(schema.workspaceSettings.organizationId, ctx.workspaceId))
