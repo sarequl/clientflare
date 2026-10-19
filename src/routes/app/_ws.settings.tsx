@@ -12,7 +12,7 @@ import {
 import { errorMessage, formatDay } from '#/lib/format'
 import { Badge, Card, CardHeader, Notice, PageHeader } from '#/components/Card'
 import { Button } from '#/components/Button'
-import { CurrencySelect, Field, Input, Select } from '#/components/Field'
+import { CurrencySelect, Field, Input, Select, Textarea } from '#/components/Field'
 import { ConfirmDialog } from '#/components/Modal'
 import { EmptyState } from '#/components/EmptyState'
 import { ThemeToggle } from '#/components/ThemeToggle'
@@ -22,8 +22,11 @@ import { TagSettings } from '#/components/TagSettings'
 import { FieldSettings } from '#/components/FieldSettings'
 import { listTags } from '#/features/tags/server'
 import { listFields } from '#/features/custom-fields/server'
+import { getInvoiceSettings, updateInvoiceSettings } from '#/features/invoices/server'
+import { StageSettings } from '#/components/StageSettings'
+import { parseTaxPercent } from '#/components/InvoiceStatusBadge'
 
-const TABS = ['workspace', 'members', 'tags', 'fields', 'personal'] as const
+const TABS = ['workspace', 'members', 'pipeline', 'invoicing', 'tags', 'fields', 'personal'] as const
 type Tab = (typeof TABS)[number]
 
 const searchSchema = z.object({ tab: z.enum(TABS).optional().catch(undefined) })
@@ -32,24 +35,33 @@ export const Route = createFileRoute('/app/_ws/settings')({
   validateSearch: (search: Record<string, unknown>) => searchSchema.parse(search),
   loaderDeps: ({ search }) => ({ tab: search.tab ?? 'workspace' }),
   loader: async ({ deps }) => {
-    const [members, tags, fields] = await Promise.all([
+    const [members, tags, fields, invoicing] = await Promise.all([
       deps.tab === 'members' ? listMembers() : null,
       deps.tab === 'tags' ? listTags() : null,
       deps.tab === 'fields'
         ? Promise.all([listFields({ data: { recordType: 'contact' } }), listFields({ data: { recordType: 'company' } })]).then(([contact, company]) => ({ contact, company }))
         : null,
+      deps.tab === 'invoicing' ? getInvoiceSettings() : null,
     ])
-    return { members, tags, fields }
+    return { members, tags, fields, invoicing }
   },
   head: () => ({ meta: [{ title: 'Settings · Clientflare' }] }),
   component: SettingsPage,
 })
 
-const TAB_LABELS: Record<Tab, string> = { workspace: 'Workspace', members: 'Members', tags: 'Tags', fields: 'Custom fields', personal: 'Personal' }
+const TAB_LABELS: Record<Tab, string> = {
+  workspace: 'Workspace',
+  members: 'Members',
+  pipeline: 'Pipeline',
+  invoicing: 'Invoicing',
+  tags: 'Tags',
+  fields: 'Custom fields',
+  personal: 'Personal',
+}
 
 function SettingsPage() {
   const { tab = 'workspace' } = Route.useSearch()
-  const { members, tags, fields } = Route.useLoaderData()
+  const { members, tags, fields, invoicing } = Route.useLoaderData()
 
   return (
     <>
@@ -71,6 +83,8 @@ function SettingsPage() {
       </nav>
       {tab === 'workspace' && <WorkspaceTab />}
       {tab === 'members' && members && <MembersTab data={members} />}
+      {tab === 'pipeline' && <StageSettings />}
+      {tab === 'invoicing' && invoicing && <InvoicingTab settings={invoicing} />}
       {tab === 'tags' && tags && <TagSettings tags={tags} />}
       {tab === 'fields' && fields && <FieldSettings fields={fields} />}
       {tab === 'personal' && <PersonalTab />}
@@ -138,6 +152,127 @@ function WorkspaceTab() {
         )}
       </form>
     </Card>
+  )
+}
+
+type InvoiceSettings = Awaited<ReturnType<typeof getInvoiceSettings>>
+
+function InvoicingTab({ settings }: { settings: InvoiceSettings }) {
+  const app = useApp()
+  const router = useRouter()
+  const editable = canManage(app.role)
+  const [form, setForm] = useState({
+    businessName: settings.businessName,
+    businessAddress: settings.businessAddress,
+    businessEmail: settings.businessEmail,
+    taxId: settings.taxId,
+    invoicePrefix: settings.invoicePrefix,
+    nextInvoiceNumber: String(settings.nextInvoiceNumber),
+    defaultTax: String(settings.defaultTaxRateBp / 100),
+    defaultPaymentTermsDays: String(settings.defaultPaymentTermsDays),
+    invoiceFooter: settings.invoiceFooter,
+  })
+  const [errors, setErrors] = useState<Record<string, string>>({})
+  const [pending, setPending] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [saved, setSaved] = useState(false)
+  const set = (k: keyof typeof form) => (e: { target: { value: string } }) => setForm((f) => ({ ...f, [k]: e.target.value }))
+
+  const preview = `${form.invoicePrefix}${String(Number(form.nextInvoiceNumber) || 1).padStart(4, '0')}`
+
+  async function onSubmit(e: FormEvent) {
+    e.preventDefault()
+    setError(null)
+    setSaved(false)
+    const errs: Record<string, string> = {}
+    const next = Number(form.nextInvoiceNumber)
+    const terms = Number(form.defaultPaymentTermsDays)
+    const tax = parseTaxPercent(form.defaultTax)
+    if (!Number.isInteger(next) || next < 1) errs.next = 'Use a whole number from 1.'
+    if (!Number.isInteger(terms) || terms < 0 || terms > 365) errs.terms = 'Use 0 to 365 days.'
+    if (tax === null) errs.tax = 'Use a percent between 0 and 100.'
+    if (form.businessEmail.trim() && !/^\S+@\S+\.\S+$/.test(form.businessEmail.trim())) errs.email = 'Enter a valid email.'
+    setErrors(errs)
+    if (Object.keys(errs).length) return
+    setPending(true)
+    try {
+      await updateInvoiceSettings({
+        data: {
+          businessName: form.businessName.trim(),
+          businessAddress: form.businessAddress.trim(),
+          businessEmail: form.businessEmail.trim(),
+          taxId: form.taxId.trim(),
+          invoicePrefix: form.invoicePrefix.trim(),
+          nextInvoiceNumber: next,
+          defaultTaxRateBp: tax ?? 0,
+          defaultPaymentTermsDays: terms,
+          invoiceFooter: form.invoiceFooter.trim(),
+        },
+      })
+      await router.invalidate()
+      setSaved(true)
+    } catch (err) {
+      setError(errorMessage(err, 'Could not save invoicing settings.'))
+    } finally {
+      setPending(false)
+    }
+  }
+
+  return (
+    <form onSubmit={onSubmit} className="flex max-w-2xl flex-col gap-4" noValidate>
+      <Card>
+        <CardHeader title="Business details" description="Printed at the top of every invoice." />
+        <div className="grid gap-4 p-4 sm:grid-cols-2">
+          <Field label="Business name" htmlFor="biz-name" hint={`Leave blank to use “${app.workspace.name}”.`} className="sm:col-span-2">
+            <Input id="biz-name" value={form.businessName} onChange={set('businessName')} maxLength={120} disabled={!editable} />
+          </Field>
+          <Field label="Address" htmlFor="biz-address" className="sm:col-span-2">
+            <Textarea id="biz-address" rows={3} value={form.businessAddress} onChange={set('businessAddress')} maxLength={500} disabled={!editable} />
+          </Field>
+          <Field label="Billing email" htmlFor="biz-email" error={errors.email}>
+            <Input id="biz-email" type="email" inputMode="email" value={form.businessEmail} onChange={set('businessEmail')} aria-invalid={!!errors.email} disabled={!editable} />
+          </Field>
+          <Field label="Tax ID" htmlFor="biz-tax-id" hint="VAT, GST or similar. Optional.">
+            <Input id="biz-tax-id" value={form.taxId} onChange={set('taxId')} maxLength={60} disabled={!editable} />
+          </Field>
+        </div>
+      </Card>
+      <Card>
+        <CardHeader title="Numbering and defaults" description={editable ? 'Numbers are assigned when an invoice is marked sent.' : 'Only owners and admins can change these.'} />
+        <div className="grid gap-4 p-4 sm:grid-cols-2">
+          <Field label="Number prefix" htmlFor="inv-prefix" hint={`Next invoice: ${preview}`}>
+            <Input id="inv-prefix" value={form.invoicePrefix} onChange={set('invoicePrefix')} maxLength={10} disabled={!editable} />
+          </Field>
+          <Field label="Next number" htmlFor="inv-next" error={errors.next}>
+            <Input id="inv-next" inputMode="numeric" value={form.nextInvoiceNumber} onChange={set('nextInvoiceNumber')} aria-invalid={!!errors.next} className="tnum" disabled={!editable} />
+          </Field>
+          <Field label="Default tax rate" htmlFor="inv-default-tax" error={errors.tax}>
+            <div className="relative">
+              <Input id="inv-default-tax" inputMode="decimal" value={form.defaultTax} onChange={set('defaultTax')} aria-invalid={!!errors.tax} className="pr-8 tnum" disabled={!editable} />
+              <span className="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 text-fg-subtle">%</span>
+            </div>
+          </Field>
+          <Field label="Payment terms" htmlFor="inv-terms" error={errors.terms} hint="Days from issue to due date.">
+            <div className="relative">
+              <Input id="inv-terms" inputMode="numeric" value={form.defaultPaymentTermsDays} onChange={set('defaultPaymentTermsDays')} aria-invalid={!!errors.terms} className="pr-12 tnum" disabled={!editable} />
+              <span className="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 text-fg-subtle">days</span>
+            </div>
+          </Field>
+          <Field label="Default footer" htmlFor="inv-default-footer" hint="Bank details, late fee terms. Copied onto new invoices." className="sm:col-span-2">
+            <Textarea id="inv-default-footer" rows={3} value={form.invoiceFooter} onChange={set('invoiceFooter')} maxLength={2000} disabled={!editable} />
+          </Field>
+        </div>
+      </Card>
+      {error && <Notice tone="danger">{error}</Notice>}
+      {saved && !error && <Notice tone="accent">Saved.</Notice>}
+      {editable && (
+        <div>
+          <Button type="submit" variant="primary" pending={pending}>
+            Save invoicing settings
+          </Button>
+        </div>
+      )}
+    </form>
   )
 }
 

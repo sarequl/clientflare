@@ -233,3 +233,25 @@
     animation: none;
   }
 }
+
+/* Invoices print as A4 sheets: white page, no app chrome, no buttons. */
+@page {
+  size: A4;
+  margin: 16mm 14mm;
+}
+@media print {
+  html,
+  body {
+    background: #fff !important;
+    color: #000;
+    color-scheme: light;
+  }
+  .invoice-sheet {
+    font-size: 11pt;
+  }
+  .invoice-sheet,
+  .invoice-sheet * {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}

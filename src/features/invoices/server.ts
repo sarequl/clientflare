@@ -4,7 +4,7 @@ import { z } from 'zod'
 import { getDb, schema } from '#/db'
 import { INVOICE_STATUSES } from '#/db/schema/invoices'
 import { newId } from '#/lib/ids'
-import { requireWorkspace } from '#/lib/session'
+import { requireRole, requireWorkspace } from '#/lib/session'
 import { activityInsert } from '#/features/activities/server'
 import { recordIncome } from '#/features/finance/server'
 import { computeTotals } from '#/lib/invoice-math'
@@ -119,9 +119,14 @@ export const getInvoice = createServerFn({ method: 'GET' })
   .validator(z.object({ id: z.string() }))
   .handler(async ({ data }) => {
     const ctx = await requireWorkspace()
-    const [inv, settings] = await Promise.all([loadInvoice(data.id, ctx.workspaceId), getDb().query.workspaceSettings.findFirst({ where: eq(schema.workspaceSettings.organizationId, ctx.workspaceId) })])
+    const db = getDb()
+    const [inv, settings, org] = await Promise.all([
+      loadInvoice(data.id, ctx.workspaceId),
+      db.query.workspaceSettings.findFirst({ where: eq(schema.workspaceSettings.organizationId, ctx.workspaceId) }),
+      db.query.organization.findFirst({ where: eq(schema.organization.id, ctx.workspaceId), columns: { name: true } }),
+    ])
     if (!inv) return null
-    return { invoice: inv, business: businessBlock(settings, ctx.workspaceId) }
+    return { invoice: inv, business: businessBlock(settings, org?.name ?? '') }
   })
 
 function businessBlock(s: typeof schema.workspaceSettings.$inferSelect | undefined, fallbackName: string) {
@@ -148,7 +153,12 @@ export const getPublicInvoice = createServerFn({ method: 'GET' })
       db.query.workspaceSettings.findFirst({ where: eq(schema.workspaceSettings.organizationId, inv.workspaceId) }),
       db.query.organization.findFirst({ where: eq(schema.organization.id, inv.workspaceId), columns: { name: true } }),
     ])
-    return { invoice: inv, business: businessBlock(settings, org?.name ?? '') }
+    // Only what the document needs. No workspace, user or income ids leave the server.
+    const { id, number, status, billTo, currency, issuedOn, dueOn, taxRateBp, subtotalMinor, taxMinor, totalMinor, notes, footer, paidOn, publicToken, lines } = inv
+    return {
+      invoice: { id, number, status, billTo, currency, issuedOn, dueOn, taxRateBp, subtotalMinor, taxMinor, totalMinor, notes, footer, paidOn, publicToken, lines: lines.map((l) => ({ id: l.id, description: l.description, quantityMilli: l.quantityMilli, unitMinor: l.unitMinor, amountMinor: l.amountMinor, sortOrder: l.sortOrder })) },
+      business: businessBlock(settings, org?.name ?? ''),
+    }
   })
 
 const invoiceInput = z.object({
@@ -252,7 +262,7 @@ export const updateInvoice = createServerFn({ method: 'POST' })
     if (inv.status === 'sent') {
       await db
         .update(schema.invoices)
-        .set({ notes: data.notes ?? inv.notes, footer: data.footer ?? inv.footer, dueOn: data.dueOn === undefined ? inv.dueOn : data.dueOn, updatedAt: now })
+        .set({ notes: data.notes === undefined ? inv.notes : data.notes || null, footer: data.footer === undefined ? inv.footer : data.footer || null, dueOn: data.dueOn === undefined ? inv.dueOn : data.dueOn, updatedAt: now })
         .where(eq(schema.invoices.id, inv.id))
       return { ok: true }
     }
@@ -438,7 +448,7 @@ export const updateInvoiceSettings = createServerFn({ method: 'POST' })
     }),
   )
   .handler(async ({ data }) => {
-    const ctx = await requireWorkspace()
+    const ctx = await requireRole('admin')
     const now = new Date()
     const set = {
       businessName: data.businessName || null,

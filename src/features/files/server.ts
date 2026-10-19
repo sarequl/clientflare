@@ -1,4 +1,4 @@
-import { createServerFn } from '@tanstack/react-start'
+import { createServerFn, createServerOnlyFn } from '@tanstack/react-start'
 import { env } from 'cloudflare:workers'
 import { and, desc, eq } from 'drizzle-orm'
 import { z } from 'zod'
@@ -18,6 +18,15 @@ export const listFiles = createServerFn({ method: 'GET' })
       with: { uploadedBy: { columns: { id: true, name: true } } },
     })
   })
+
+/** Remove every file (R2 object + row) attached to a record. Called by record delete fns. */
+export const deleteRecordFiles = createServerOnlyFn(async (workspaceId: string, recordType: (typeof FILE_RECORD_TYPES)[number], recordId: string) => {
+  const db = getDb()
+  const rows = await db.query.files.findMany({ where: and(eq(schema.files.workspaceId, workspaceId), eq(schema.files.recordType, recordType), eq(schema.files.recordId, recordId)) })
+  if (!rows.length) return
+  await env.FILES.delete(rows.map((r) => r.key))
+  await db.delete(schema.files).where(and(eq(schema.files.recordType, recordType), eq(schema.files.recordId, recordId)))
+})
 
 export const deleteFile = createServerFn({ method: 'POST' })
   .validator(z.object({ id: z.string() }))

@@ -7,6 +7,7 @@ import { requireWorkspace } from '#/lib/session'
 import { activityInsert, diffFields } from '#/features/activities/server'
 import { replaceRecordTags, tagsForRecords } from '#/features/tags/server'
 import { valuesForRecord, valuesForRecords, writeFieldValues } from '#/features/custom-fields/server'
+import { deleteRecordFiles } from '#/features/files/server'
 
 const PAGE = 50
 
@@ -150,6 +151,7 @@ export const deleteCompany = createServerFn({ method: 'POST' })
   .handler(async ({ data }) => {
     const ctx = await requireWorkspace()
     const db = getDb()
+    await deleteRecordFiles(ctx.workspaceId, 'company', data.id)
     await db.batch([
       db.delete(schema.companies).where(and(eq(schema.companies.id, data.id), eq(schema.companies.workspaceId, ctx.workspaceId))),
       db.delete(schema.taggings).where(and(eq(schema.taggings.recordType, 'company'), eq(schema.taggings.recordId, data.id))),

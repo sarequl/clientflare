@@ -8,6 +8,7 @@ import { requireRole, requireWorkspace } from '#/lib/session'
 import { activityInsert, diffFields } from '#/features/activities/server'
 import { replaceRecordTags, tagsForRecords } from '#/features/tags/server'
 import { valuesForRecord, writeFieldValues } from '#/features/custom-fields/server'
+import { deleteRecordFiles } from '#/features/files/server'
 
 const DEFAULT_STAGES = [
   { name: 'Lead', kind: 'open', probability: 10, color: 'gray' },
@@ -274,6 +275,7 @@ export const deleteDeal = createServerFn({ method: 'POST' })
   .handler(async ({ data }) => {
     const ctx = await requireWorkspace()
     const db = getDb()
+    await deleteRecordFiles(ctx.workspaceId, 'deal', data.id)
     await db.batch([
       db.delete(schema.deals).where(and(eq(schema.deals.id, data.id), eq(schema.deals.workspaceId, ctx.workspaceId))),
       db.delete(schema.taggings).where(and(eq(schema.taggings.recordType, 'deal'), eq(schema.taggings.recordId, data.id))),
@@ -334,8 +336,18 @@ export const deleteStage = createServerFn({ method: 'POST' })
     const target = await stageInWorkspace(data.moveToStageId, ctx.workspaceId)
     await stageInWorkspace(data.id, ctx.workspaceId)
     const status = target.kind === 'open' ? 'open' : target.kind
+    const now = new Date()
     await db.batch([
-      db.update(schema.deals).set({ stageId: target.id, status, updatedAt: new Date() }).where(eq(schema.deals.stageId, data.id)),
+      db
+        .update(schema.deals)
+        .set({
+          stageId: target.id,
+          status,
+          closedAt: status === 'open' ? null : sql`coalesce(${schema.deals.closedAt}, ${now.getTime()})`,
+          lostReason: status === 'lost' ? schema.deals.lostReason : null,
+          updatedAt: now,
+        })
+        .where(eq(schema.deals.stageId, data.id)),
       db.delete(schema.stages).where(eq(schema.stages.id, data.id)),
     ])
     return { ok: true }

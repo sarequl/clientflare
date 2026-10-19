@@ -17,6 +17,8 @@ import { CompanyForm } from '#/components/CompanyForm'
 import { ContactForm, fullName } from '#/components/ContactForm'
 import { formatFieldValue } from '#/components/CustomFieldInputs'
 import { DetailList, RecordHeader } from '#/components/RecordDetail'
+import { TasksPanel } from '#/components/TasksPanel'
+import { FilesPanel } from '#/components/FilesPanel'
 import { IconChevronLeft, IconPencil, IconPlus, IconTrash, IconUsers } from '#/components/icons'
 
 export const Route = createFileRoute('/app/_ws/companies/$companyId')({
@@ -183,6 +185,8 @@ function CompanyPage() {
               </ul>
             )}
           </Card>
+          <TasksPanel companyId={company.id} />
+          <FilesPanel recordType="company" recordId={company.id} />
         </div>
 
         <Timeline

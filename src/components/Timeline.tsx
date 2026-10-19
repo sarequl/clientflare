@@ -1,5 +1,6 @@
 import { useState, type ComponentType, type FormEvent } from 'react'
 import { useRouter } from '@tanstack/react-router'
+import { ShareNoteToggle } from './ShareNoteToggle'
 import { addActivity, deleteActivity, type listActivities } from '#/features/activities/server'
 import { errorMessage } from '#/lib/format'
 import { Button, IconButton } from './Button'
@@ -31,7 +32,7 @@ export function Timeline({
   fieldLabels,
   resolveValue,
 }: {
-  targetType: 'contact' | 'company'
+  targetType: 'contact' | 'company' | 'deal'
   targetId: string
   activities: Activity[]
   /** Pretty names for keys in `updated` diffs. */
@@ -133,6 +134,7 @@ export function Timeline({
                     a.body && <p className="mt-0.5 text-sm whitespace-pre-wrap">{a.body}</p>
                   )}
                 </div>
+                {a.kind === 'note' && targetType !== 'deal' && <ShareNoteToggle activityId={a.id} shared={a.sharedToPortal} />}
                 {manual && (
                   <IconButton
                     aria-label={`Delete ${label.toLowerCase()}`}
@@ -162,7 +164,7 @@ export function Timeline({
   )
 }
 
-function Composer({ targetType, targetId }: { targetType: 'contact' | 'company'; targetId: string }) {
+function Composer({ targetType, targetId }: { targetType: 'contact' | 'company' | 'deal'; targetId: string }) {
   const router = useRouter()
   const [kind, setKind] = useState<ManualKind>('note')
   const [body, setBody] = useState('')

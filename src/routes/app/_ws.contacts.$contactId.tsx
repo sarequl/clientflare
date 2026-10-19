@@ -12,9 +12,12 @@ import { ConfirmDialog, Modal } from '#/components/Modal'
 import { TagChip } from '#/components/TagChip'
 import { TagPicker } from '#/components/TagPicker'
 import { Timeline } from '#/components/Timeline'
+import { PortalAccessCard } from '#/components/PortalAccessCard'
 import { ContactForm, fullName } from '#/components/ContactForm'
 import { formatFieldValue } from '#/components/CustomFieldInputs'
 import { DetailList, RecordHeader } from '#/components/RecordDetail'
+import { TasksPanel } from '#/components/TasksPanel'
+import { FilesPanel } from '#/components/FilesPanel'
 import { IconBuilding, IconChevronLeft, IconPencil, IconTrash } from '#/components/icons'
 
 export const Route = createFileRoute('/app/_ws/contacts/$contactId')({
@@ -134,34 +137,39 @@ function ContactPage() {
       )}
 
       <div className="grid items-start gap-4 lg:grid-cols-[19rem_minmax(0,1fr)]">
-        <Card>
-          <CardHeader
-            title="Details"
-            actions={
-              <Button size="sm" variant="ghost" onClick={() => setEditing(true)}>
-                Edit
-              </Button>
-            }
-          />
-          <DetailList
-            items={[
-              { label: 'Email', value: contact.email && <a href={`mailto:${contact.email}`} className="text-accent hover:underline">{contact.email}</a> },
-              { label: 'Phone', value: contact.phone && <a href={`tel:${contact.phone}`} className="hover:underline tnum">{contact.phone}</a> },
-              { label: 'Job title', value: contact.jobTitle },
-              {
-                label: 'Company',
-                value: contact.company && (
-                  <Link to="/app/companies/$companyId" params={{ companyId: contact.company.id }} className="hover:underline">
-                    {contact.company.name}
-                  </Link>
-                ),
-              },
-              { label: 'Owner', value: contact.owner?.name },
-              ...fields.map((f) => ({ label: f.name, value: formatFieldValue(f, contact.fieldValues[f.id]) })),
-              { label: 'Notes', value: contact.notes && <span className="whitespace-pre-wrap">{contact.notes}</span>, wide: true },
-            ]}
-          />
-        </Card>
+        <div className="flex min-w-0 flex-col gap-4">
+          <Card>
+            <CardHeader
+              title="Details"
+              actions={
+                <Button size="sm" variant="ghost" onClick={() => setEditing(true)}>
+                  Edit
+                </Button>
+              }
+            />
+            <DetailList
+              items={[
+                { label: 'Email', value: contact.email && <a href={`mailto:${contact.email}`} className="text-accent hover:underline">{contact.email}</a> },
+                { label: 'Phone', value: contact.phone && <a href={`tel:${contact.phone}`} className="hover:underline tnum">{contact.phone}</a> },
+                { label: 'Job title', value: contact.jobTitle },
+                {
+                  label: 'Company',
+                  value: contact.company && (
+                    <Link to="/app/companies/$companyId" params={{ companyId: contact.company.id }} className="hover:underline">
+                      {contact.company.name}
+                    </Link>
+                  ),
+                },
+                { label: 'Owner', value: contact.owner?.name },
+                ...fields.map((f) => ({ label: f.name, value: formatFieldValue(f, contact.fieldValues[f.id]) })),
+                { label: 'Notes', value: contact.notes && <span className="whitespace-pre-wrap">{contact.notes}</span>, wide: true },
+              ]}
+            />
+          </Card>
+          <TasksPanel contactId={contact.id} />
+          <FilesPanel recordType="contact" recordId={contact.id} />
+          <PortalAccessCard contactId={contact.id} email={contact.email} />
+        </div>
 
         <Timeline
           targetType="contact"

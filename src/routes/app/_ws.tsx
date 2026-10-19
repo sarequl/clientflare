@@ -17,11 +17,14 @@ import {
   IconMenu,
   IconPiggy,
   IconPlus,
+  IconSearch,
   IconSend,
   IconSettings,
   IconUsers,
   IconX,
 } from '#/components/icons'
+import { IconBriefcase, IconCheckSquare, IconInvoice } from '#/components/icons-invoice'
+import { CommandSearch, useCommandShortcut } from '#/components/CommandSearch'
 
 export const Route = createFileRoute('/app/_ws')({
   beforeLoad: async () => {
@@ -42,6 +45,9 @@ const NAV: { label?: string; items: NavItem[] }[] = [
       { to: '/app', label: 'Dashboard', Icon: IconHome, exact: true },
       { to: '/app/contacts', label: 'Contacts', Icon: IconUsers },
       { to: '/app/companies', label: 'Companies', Icon: IconBuilding },
+      { to: '/app/deals', label: 'Deals', Icon: IconBriefcase },
+      { to: '/app/tasks', label: 'Tasks', Icon: IconCheckSquare },
+      { to: '/app/invoices', label: 'Invoices', Icon: IconInvoice },
     ],
   },
   {
@@ -59,7 +65,9 @@ const NAV: { label?: string; items: NavItem[] }[] = [
 function WorkspaceShell() {
   const { app } = Route.useRouteContext()
   const [drawerOpen, setDrawerOpen] = useState(false)
+  const [searchOpen, setSearchOpen] = useState(false)
   const pathname = useRouterState({ select: (s) => s.location.pathname })
+  useCommandShortcut(() => setSearchOpen(true))
 
   useEffect(() => setDrawerOpen(false), [pathname])
 
@@ -75,6 +83,14 @@ function WorkspaceShell() {
     }
   }, [drawerOpen])
 
+  // Print views (e.g. /app/invoices/:id/print) render without any app chrome.
+  if (pathname.endsWith('/print')) return <Outlet />
+
+  const openSearch = () => {
+    setDrawerOpen(false)
+    setSearchOpen(true)
+  }
+
   return (
     <div className="min-h-dvh lg:pl-60">
       <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:rounded-md focus:bg-surface focus:px-3 focus:py-2">
@@ -83,7 +99,7 @@ function WorkspaceShell() {
 
       {/* Desktop sidebar */}
       <aside className="fixed inset-y-0 left-0 hidden w-60 flex-col border-r border-border bg-surface lg:flex">
-        <SidebarContent app={app} />
+        <SidebarContent app={app} onSearch={openSearch} />
       </aside>
 
       {/* Mobile top bar */}
@@ -98,9 +114,14 @@ function WorkspaceShell() {
           <IconMenu size={20} />
         </button>
         <span className="min-w-0 truncate text-sm font-semibold">{app.workspace.name}</span>
-        <Link to="/app/quick" aria-label="Quick add" className="-mr-2 grid size-9 place-items-center rounded-md text-accent hover:bg-surface-2">
-          <IconPlus size={20} />
-        </Link>
+        <div className="-mr-2 flex items-center">
+          <button type="button" onClick={openSearch} aria-label="Search" className="grid size-9 place-items-center rounded-md text-fg-muted hover:bg-surface-2 hover:text-fg">
+            <IconSearch size={19} />
+          </button>
+          <Link to="/app/quick" aria-label="Quick add" className="grid size-9 place-items-center rounded-md text-accent hover:bg-surface-2">
+            <IconPlus size={20} />
+          </Link>
+        </div>
       </header>
 
       {/* Mobile drawer */}
@@ -116,7 +137,7 @@ function WorkspaceShell() {
             >
               <IconX />
             </button>
-            <SidebarContent app={app} autoFocus />
+            <SidebarContent app={app} autoFocus onSearch={openSearch} />
           </aside>
         </div>
       )}
@@ -124,11 +145,13 @@ function WorkspaceShell() {
       <main id="main" className="mx-auto w-full max-w-5xl px-4 py-5 sm:px-6 sm:py-8">
         <Outlet />
       </main>
+
+      <CommandSearch open={searchOpen} onClose={() => setSearchOpen(false)} />
     </div>
   )
 }
 
-function SidebarContent({ app, autoFocus }: { app: AppCtx; autoFocus?: boolean }) {
+function SidebarContent({ app, autoFocus, onSearch }: { app: AppCtx; autoFocus?: boolean; onSearch: () => void }) {
   const navigate = useNavigate()
   const [signingOut, setSigningOut] = useState(false)
 
@@ -150,6 +173,15 @@ function SidebarContent({ app, autoFocus }: { app: AppCtx; autoFocus?: boolean }
       </div>
       <div className="px-3">
         <WorkspaceSwitcher app={app} autoFocus={autoFocus} />
+        <button
+          type="button"
+          onClick={onSearch}
+          className="mt-2 flex h-9 w-full items-center gap-2 rounded-md border border-border bg-surface px-2.5 text-left text-sm text-fg-subtle hover:border-border-strong hover:text-fg-muted"
+        >
+          <IconSearch size={15} />
+          <span className="flex-1">Search</span>
+          <kbd className="rounded border border-border px-1 text-[11px] font-sans">⌘K</kbd>
+        </button>
       </div>
       <nav aria-label="Main" className="mt-4 flex flex-1 flex-col gap-0.5 overflow-y-auto px-3">
         {NAV.map((group, g) => (
