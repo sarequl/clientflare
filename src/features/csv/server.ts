@@ -111,11 +111,9 @@ export const importContacts = createServerFn({ method: 'POST' })
     const existingCompanies = await db.query.companies.findMany({ where: eq(schema.companies.workspaceId, ctx.workspaceId), columns: { id: true, name: true } })
     const companyByName = new Map(existingCompanies.map((c) => [c.name.toLowerCase(), c.id]))
     const now = new Date()
+    // Ids are assigned now; rows are written after every contact row has validated.
     const newCompanies = [...companyNames].filter((n) => !companyByName.has(n.toLowerCase())).map((name) => ({ id: newId(), workspaceId: ctx.workspaceId, name, createdAt: now, updatedAt: now, ownerUserId: ctx.user.id }))
-    if (newCompanies.length) {
-      await db.insert(schema.companies).values(newCompanies)
-      for (const c of newCompanies) companyByName.set(c.name.toLowerCase(), c.id)
-    }
+    for (const c of newCompanies) companyByName.set(c.name.toLowerCase(), c.id)
 
     let imported = 0
     const errors: string[] = []
@@ -165,13 +163,14 @@ export const importContacts = createServerFn({ method: 'POST' })
     }
     // D1 batch limits: chunk inserts.
     const chunk = <T,>(arr: T[], n = 100) => Array.from({ length: Math.ceil(arr.length / n) }, (_, i) => arr.slice(i * n, i * n + n))
+    if (newCompanies.length && contactRows.length) await db.insert(schema.companies).values(newCompanies)
     for (const c of chunk(contactRows)) await db.insert(schema.contacts).values(c)
     for (const c of chunk(taggingRows)) await db.insert(schema.taggings).values(c).onConflictDoNothing()
     for (const c of chunk(valueRows)) await db.insert(schema.fieldValues).values(c)
     for (const c of chunk(contactRows, 50)) {
       await db.batch(c.map((row) => activityInsert({ workspaceId: ctx.workspaceId, userId: ctx.user.id, targetType: 'contact', targetId: row.id, kind: 'created', body: 'Imported from CSV' })) as [never, ...never[]])
     }
-    return { imported, skipped: errors.length, companiesCreated: newCompanies.length, errors: errors.slice(0, 50) }
+    return { imported, skipped: errors.length, companiesCreated: contactRows.length ? newCompanies.length : 0, errors: errors.slice(0, 50) }
   })
 
 export const importCompanies = createServerFn({ method: 'POST' })

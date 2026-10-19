@@ -39,7 +39,7 @@ function NewWorkspacePage() {
     try {
       await createWorkspace({ data: { name: name.trim(), baseCurrency: currency, timezone } })
       await router.invalidate()
-      await navigate({ to: '/app' })
+      await navigate({ to: '/app/setup' })
     } catch (err) {
       setError(errorMessage(err, 'Could not create the workspace.'))
     } finally {

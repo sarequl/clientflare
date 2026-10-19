@@ -87,14 +87,14 @@ Built in this order so the tool is useful for personal work from the first phase
 
 **Phase 2: Core CRM (rest of v1)**
 
-- [ ] Contacts and companies, tags, custom fields, CSV import and export
-- [ ] Deals pipeline (kanban + table), stages, won / lost
-- [ ] Activity timeline and notes
-- [ ] Tasks and follow-ups with email reminders
-- [ ] Files on R2
-- [ ] Invoices (PDF, statuses), paid invoice → income
-- [ ] Client portal (invite-only, magic link)
-- [ ] Dashboard and global search
+- [x] Contacts and companies, tags, custom fields, CSV import and export
+- [x] Deals pipeline (kanban + table), stages, won / lost
+- [x] Activity timeline and notes
+- [x] Tasks and follow-ups with email reminders
+- [x] Files on R2
+- [x] Invoices (PDF, statuses), paid invoice → income
+- [x] Client portal (invite-only, magic link)
+- [x] Dashboard and global search
 - [ ] Setup wizard and public OSS release
 
 **Phase 3: v1.x**
@@ -130,4 +130,4 @@ Built in this order so the tool is useful for personal work from the first phase
 - [x] **Licence:** AGPL-3.0.
 - [x] **Tenancy:** one D1 per install, workspaces as rows.
 - [x] **Base currency:** per workspace, plus a personal base currency per user.
-- [ ] **Product name and repo name.**
+- [ ] **Product name and repo name.** ("Clientflare" is the working name.)

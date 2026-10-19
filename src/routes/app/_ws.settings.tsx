@@ -11,7 +11,7 @@ import {
 } from '#/features/workspaces/server'
 import { errorMessage, formatDay } from '#/lib/format'
 import { Badge, Card, CardHeader, Notice, PageHeader } from '#/components/Card'
-import { Button } from '#/components/Button'
+import { Button, buttonClass } from '#/components/Button'
 import { CurrencySelect, Field, Input, Select, Textarea } from '#/components/Field'
 import { ConfirmDialog } from '#/components/Modal'
 import { EmptyState } from '#/components/EmptyState'
@@ -128,6 +128,11 @@ function WorkspaceTab() {
       <CardHeader
         title="Workspace"
         description={editable ? 'Applies to everyone in this workspace.' : 'Only owners and admins can change these.'}
+        actions={
+          <Link to="/app/setup" className={buttonClass('ghost', 'sm')}>
+            Run setup again
+          </Link>
+        }
       />
       <form onSubmit={onSubmit} className="flex flex-col gap-4 p-4" noValidate>
         <Field label="Name" htmlFor="ws-name">

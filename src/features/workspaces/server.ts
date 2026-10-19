@@ -66,6 +66,7 @@ export const getAppContext = createServerFn({ method: 'GET' }).handler(async () 
       timezone: settings?.timezone ?? 'UTC',
     },
     personalCurrency: userSettings?.baseCurrency ?? settings?.baseCurrency ?? 'USD',
+    setupDone: !!settings?.setupCompletedAt || !['owner', 'admin'].some((r) => (membership?.role ?? '').split(',').includes(r)),
     role: (membership?.role ?? 'member') as 'owner' | 'admin' | 'member',
   }
 })
@@ -181,3 +182,14 @@ export const acceptInvitation = createServerFn({ method: 'POST' })
     }
     return { ok: true }
   })
+
+/** Marks the first-run wizard as finished so the app stops redirecting to it. */
+export const completeSetup = createServerFn({ method: 'POST' }).handler(async () => {
+  const ctx = await requireRole('admin')
+  const now = new Date()
+  await getDb()
+    .insert(schema.workspaceSettings)
+    .values({ organizationId: ctx.workspaceId, setupCompletedAt: now, updatedAt: now })
+    .onConflictDoUpdate({ target: schema.workspaceSettings.organizationId, set: { setupCompletedAt: now, updatedAt: now } })
+  return { ok: true }
+})

@@ -1,4 +1,4 @@
-import { Link, createFileRoute, useNavigate } from '@tanstack/react-router'
+import { Link, createFileRoute, redirect, useNavigate } from '@tanstack/react-router'
 import { getFinanceSummary, listSetAsides } from '#/features/finance/server'
 import { getInvoiceStats } from '#/features/invoices/server'
 import { getPipelineSummary } from '#/features/deals/server'
@@ -14,6 +14,10 @@ import { IconBriefcase, IconCheckSquare, IconInvoice } from '#/components/icons-
 import { useApp } from '#/components/useApp'
 
 export const Route = createFileRoute('/app/_ws/')({
+  beforeLoad: ({ context }) => {
+    // First-run wizard. Only the dashboard redirects so every other page stays reachable.
+    if (!context.app.setupDone) throw redirect({ to: '/app/setup' })
+  },
   validateSearch: (search: Record<string, unknown>) => monthSearchSchema.parse(search),
   loaderDeps: ({ search }) => ({ month: search.month }),
   loader: async ({ deps }) => {

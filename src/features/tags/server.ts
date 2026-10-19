@@ -4,7 +4,7 @@ import { z } from 'zod'
 import { getDb, schema } from '#/db'
 import { RECORD_TYPES, type RecordType } from '#/db/schema/crm'
 import { newId } from '#/lib/ids'
-import { requireWorkspace } from '#/lib/session'
+import { requireRole, requireWorkspace } from '#/lib/session'
 import { uniqueAs } from '#/lib/db-errors'
 
 export const TAG_COLORS = ['gray', 'red', 'orange', 'yellow', 'green', 'teal', 'blue', 'purple', 'pink'] as const
@@ -28,7 +28,7 @@ export const createTag = createServerFn({ method: 'POST' })
 export const updateTag = createServerFn({ method: 'POST' })
   .validator(tagInput.extend({ id: z.string() }))
   .handler(async ({ data }) => {
-    const ctx = await requireWorkspace()
+    const ctx = await requireRole('admin')
     const { id, ...rest } = data
     await getDb().update(schema.tags).set(rest).where(and(eq(schema.tags.id, id), eq(schema.tags.workspaceId, ctx.workspaceId))).catch(uniqueAs('A tag with that name already exists'))
     return { ok: true }
@@ -37,7 +37,7 @@ export const updateTag = createServerFn({ method: 'POST' })
 export const deleteTag = createServerFn({ method: 'POST' })
   .validator(z.object({ id: z.string() }))
   .handler(async ({ data }) => {
-    const ctx = await requireWorkspace()
+    const ctx = await requireRole('admin')
     await getDb().delete(schema.tags).where(and(eq(schema.tags.id, data.id), eq(schema.tags.workspaceId, ctx.workspaceId)))
     return { ok: true } // taggings cascade
   })

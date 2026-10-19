@@ -18,6 +18,8 @@ export const workspaceSettings = sqliteTable('workspace_settings', {
   defaultTaxRateBp: integer('default_tax_rate_bp').notNull().default(0),
   defaultPaymentTermsDays: integer('default_payment_terms_days').notNull().default(14),
   invoiceFooter: text('invoice_footer'),
+  /** Set when the first-run wizard finishes (or is skipped). */
+  setupCompletedAt: integer('setup_completed_at', { mode: 'timestamp_ms' }),
   updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull(),
 })
 
