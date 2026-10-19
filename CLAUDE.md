@@ -15,6 +15,7 @@ pnpm db:generate      # new migration from src/db/schema → ./drizzle
 pnpm db:migrate       # apply to local D1 (rm -rf .wrangler/state for a clean DB)
 pnpm auth:generate    # regenerate src/db/schema/auth.ts after changing Better Auth plugins
 pnpm cf-typegen       # regenerate worker-configuration.d.ts after wrangler.jsonc changes
+pnpm test             # node --test over tests/*.test.ts (pure modules only, no Workers runtime)
 ```
 
 Secrets go in `.dev.vars` (copy from `.dev.vars.example`). Without `RESEND_API_KEY`, emails print to the terminal.
@@ -32,6 +33,12 @@ Secrets go in `.dev.vars` (copy from `.dev.vars.example`). Without `RESEND_API_K
 - **UI**: no component library. Shared pieces in `src/components/`. No native `confirm`/`alert`; use `ConfirmDialog` from `Modal.tsx`. Route search params validated with zod. After mutations call `router.invalidate()`.
 - **Dates** stored as `YYYY-MM-DD` text, timestamps as `timestamp_ms` integers.
 
+## Modules (src/features)
+
+finance (incomes, expenses, set-asides, payouts; `recordIncome` is the shared writer), workspaces, contacts, companies, tags, custom-fields, activities (timeline; `activityInsert` returns a statement for batching, `diffFields` builds the `updated` meta), csv, deals (default pipeline is created lazily by `ensureDefaultPipeline`; `moveDeal` owns status + ordering), tasks (`runTaskReminders` runs from the hourly cron in `src/server.ts`, 08:00 workspace-local, one digest per user per day), files (R2; upload/download are raw routes under `src/routes/api/files/`), invoices (draft → sent assigns the number; paid calls `recordIncome`; "PDF" is the print view of `/i/:token`), portal (contact magic links, `cf_portal` cookie, hashed tokens, `portalSessionFromHeaders`), search (LIKE across four tables).
+
+Polymorphic records: tags, custom fields, activities and files key on `(recordType, recordId)` with no FK, so each module's delete fn cleans them up in a batch. Pure logic that the UI also needs lives in `src/lib/` (`money`, `invoice-math`, `csv`) so it stays out of the server bundle.
+
 ## Gotchas
 
 - pnpm on this machine enforces a minimum release age. Don't `pnpm add x@latest` the day a release lands; pin a day back. `onlyBuiltDependencies` lives in `pnpm-workspace.yaml`.
@@ -40,4 +47,4 @@ Secrets go in `.dev.vars` (copy from `.dev.vars.example`). Without `RESEND_API_K
 
 ## Roadmap pointer
 
-Phase 1 (auth, workspaces, finance) is done. Phase 2 is contacts, deals, activities, tasks, files, invoices, portal, dashboard, search. Keep the "paid invoice → income" link in mind when touching `incomes.invoice_id`.
+Phase 1 (auth, workspaces, finance) and the Phase 2 backend are done. Remaining for v1: setup wizard, polish, public OSS release. See the roadmap in `docs/CRM plan.md`.

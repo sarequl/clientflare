@@ -7,6 +7,7 @@ import { newId } from '#/lib/ids'
 import { requireWorkspace } from '#/lib/session'
 import { activityInsert } from '#/features/activities/server'
 import { recordIncome } from '#/features/finance/server'
+import { computeTotals } from '#/lib/invoice-math'
 
 const ISO_DATE = z.string().regex(/^\d{4}-\d{2}-\d{2}$/)
 const CURRENCY = z.string().regex(/^[A-Z]{3}$/)
@@ -18,12 +19,7 @@ const lineInput = z.object({
   unitMinor: z.number().int().min(-1_000_000_000_000).max(1_000_000_000_000),
 })
 
-export function computeTotals(lines: { quantityMilli: number; unitMinor: number }[], taxRateBp: number) {
-  const lineAmounts = lines.map((l) => Math.round((l.quantityMilli * l.unitMinor) / 1000))
-  const subtotalMinor = lineAmounts.reduce((a, b) => a + b, 0)
-  const taxMinor = Math.round((subtotalMinor * taxRateBp) / 10_000)
-  return { lineAmounts, subtotalMinor, taxMinor, totalMinor: subtotalMinor + taxMinor }
-}
+export { computeTotals }
 
 const addDays = (iso: string, days: number) => {
   const d = new Date(`${iso}T00:00:00Z`)
