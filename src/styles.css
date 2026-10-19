@@ -237,9 +237,14 @@
 }
 
 /* Invoices print as A4 sheets: white page, no app chrome, no buttons. */
+/*
+ * Zero page margin: browsers print their own header/footer (date, title, URL)
+ * into the margin area, so removing it removes them. The sheet carries its own
+ * 14mm padding instead.
+ */
 @page {
   size: A4;
-  margin: 14mm;
+  margin: 0;
 }
 @media print {
   /*
@@ -255,11 +260,12 @@
   html {
     scrollbar-gutter: auto;
   }
-  /* The @page margin is the only margin: the sheet fills the printable width exactly. */
+  /* The sheet's own padding is the page margin; print:p-0 on the sheet is overridden here. */
   .invoice-sheet {
     width: auto !important;
     max-width: none !important;
     margin: 0 !important;
+    padding: 14mm !important;
     font-size: 11pt;
   }
   .invoice-sheet,
