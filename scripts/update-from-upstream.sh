@@ -42,8 +42,22 @@ cleanup() { git replace -d "$root" >/dev/null 2>&1 || true; }
 trap cleanup EXIT
 
 if ! git merge --no-edit "$up"; then
-  echo ""
-  echo "Merge conflicts. Resolve them, then: git commit && git push"
-  exit 1
+  # Cloudflare strips .github on import, so files it deleted and upstream later
+  # changed show up as modify/delete conflicts. Those are safe to take from
+  # upstream; anything else is a real conflict.
+  for path in $(git diff --name-only --diff-filter=U); do
+    if ! git ls-files -u -- "$path" | grep -q "^[0-7]* [0-9a-f]* 2"; then
+      git checkout --theirs -- "$path"
+      git add -- "$path"
+    fi
+  done
+  if [ -n "$(git diff --name-only --diff-filter=U)" ]; then
+    echo ""
+    echo "Merge conflicts in:"
+    git diff --name-only --diff-filter=U | sed 's/^/  /'
+    echo "Resolve them, then: git commit && git push"
+    exit 1
+  fi
+  git commit --no-edit --quiet
 fi
 echo "Merged. Now: git push"
