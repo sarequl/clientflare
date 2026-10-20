@@ -77,12 +77,17 @@ Open your Worker's URL, create the first account, and the setup wizard takes it 
 
 ## Updating
 
-**Button deployments** got their own copy of this repo on GitHub, and Cloudflare redeploys it on every push to `main`. The copy includes an **Update from upstream** workflow: open the Actions tab of your copy, pick it, press **Run workflow**. It fast-forwards your `main` to this repo and the push redeploys, migrations included. It also runs by itself every Monday. If you have committed your own changes, do the merge by hand instead:
+**Button deployments** got their own copy of this repo on GitHub, and Cloudflare redeploys it on every push to `main`. The copy has no shared history with this repo and no `.github` folder, so the first update is by hand:
 
 ```sh
-git pull https://github.com/sarequl/clientflare main
+git clone https://github.com/<you>/<your-copy> && cd <your-copy>
+curl -fsSL https://raw.githubusercontent.com/sarequl/clientflare/main/scripts/update-from-upstream.sh | sh
 git push
 ```
+
+The script finds the commit your copy was imported from, merges everything since, and keeps the worker name and database id Cloudflare wrote into `wrangler.jsonc`. The push redeploys, migrations included.
+
+After that first update your copy contains an **Update from upstream** workflow: Actions tab, pick it, **Run workflow**. It also runs by itself every Monday. Real merge conflicts fail the run and tell you which files to look at.
 
 **Hand deployments** are `git pull` followed by `pnpm run deploy`.
 
