@@ -46,7 +46,7 @@ Polymorphic records: tags, custom fields, activities and files key on `(recordTy
 - A `typeof getAuth` (or any server-only symbol) inside a type alias in a file the client imports keeps that import alive in the client bundle and breaks the build on `cloudflare:workers`. Derive types from server functions instead (`typeof getSession`).
 - `wrangler types` only sees secrets when `.dev.vars` exists. `src/env.d.ts` declares them so types never vanish.
 - `wrangler.jsonc` has no D1 `database_id` on purpose: wrangler provisions D1/R2 by name on first deploy, and the deploy button does the same.
-- `APP_URL` is optional. `appOrigin()` in `src/lib/origin.ts` returns it, or the current request's origin (AsyncLocalStorage set in `src/server.ts`). Cron has no request, so it uses `workspace_settings.app_origin`, which `getAppContext` keeps current.
+- `APP_URL` is optional and not in `wrangler.jsonc` (set it in the dashboard if ever needed). `appOrigin()` in `src/lib/origin.ts` returns it, or the current request's origin (AsyncLocalStorage set in `src/server.ts`). Cron has no request, so it uses `workspace_settings.app_origin`, which `getAppContext` keeps current.
 
 ## Roadmap pointer
 

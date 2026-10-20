@@ -68,11 +68,8 @@
       "RESEND_API_KEY": {
         "description": "API key from [Resend](https://resend.com) for sign-in links and invites. Optional until you need email."
       },
-      "APP_URL": {
-        "description": "Public URL of this deployment, e.g. https://clientflare.<you>.workers.dev"
-      },
       "EMAIL_FROM": {
-        "description": "From address for system email. Must be a verified Resend domain."
+        "description": "From address for system email. Only used once RESEND_API_KEY is set; must be a sender on a domain your Resend account verifies."
       }
     }
   }

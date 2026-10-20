@@ -4,5 +4,7 @@ declare namespace Cloudflare {
   interface Env {
     BETTER_AUTH_SECRET: string
     RESEND_API_KEY: string
+    /** Optional dashboard variable; unset means "use the request's origin". */
+    APP_URL?: string
   }
 }

@@ -70,8 +70,8 @@ wrangler secret put RESEND_API_KEY       # optional until you want email
 | --- | --- | --- |
 | `BETTER_AUTH_SECRET` | yes | Signs sessions. Any 32+ byte random string. |
 | `RESEND_API_KEY` | no | Sign-in links, invites and digests. Without it, nothing is emailed. |
-| `EMAIL_FROM` | with Resend | A sender on a domain your Resend account verifies. Set in `wrangler.jsonc`. |
-| `APP_URL` | no | Leave empty; the app uses whatever hostname it is served from, custom domains included. |
+| `EMAIL_FROM` | with Resend | A sender on a domain your Resend account verifies. Ignored until `RESEND_API_KEY` is set. |
+| `APP_URL` | no | Not asked for. The app uses whatever hostname it is served from, custom domains included. Add it as a variable in the dashboard only if you serve one deployment from several hostnames. |
 
 Open your Worker's URL, create the first account, and the setup wizard takes it from there. Later releases are a `git pull` and `pnpm deploy`; migrations run as part of it.
 
