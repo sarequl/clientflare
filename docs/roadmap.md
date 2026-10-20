@@ -95,7 +95,7 @@ Built in this order so the tool is useful for personal work from the first phase
 - [x] Dashboard and global search
 - [x] Setup wizard
 - [x] MCP server with personal API tokens (pulled forward from later phases)
-- [x] Instance settings: invite-only signup, who may create workspaces (first account is the instance admin)
+- [x] Instance settings: invite-only signup, who may create workspaces, optional email verification (first account is the instance admin)
 - [ ] Public OSS release
 
 **Phase 3: v1.x**

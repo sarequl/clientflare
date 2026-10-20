@@ -48,5 +48,7 @@ export const instanceSettings = sqliteTable('instance_settings', {
   openSignup: integer('open_signup', { mode: 'boolean' }).notNull().default(true),
   /** False: only the instance admin can create workspaces; others join by invitation. */
   membersCreateWorkspaces: integer('members_create_workspaces', { mode: 'boolean' }).notNull().default(true),
+  /** True: unverified accounts are held at /verify-email until they click the link. */
+  requireEmailVerification: integer('require_email_verification', { mode: 'boolean' }).notNull().default(false),
   updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull(),
 })

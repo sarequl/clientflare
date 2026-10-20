@@ -43,7 +43,7 @@ function SignupPage() {
     if (Object.keys(next).length) return
     setPending(true)
     try {
-      const res = await signUp.email({ name: name.trim(), email, password })
+      const res = await signUp.email({ name: name.trim(), email, password, callbackURL: '/app' })
       if (res.error) {
         setErrors({ form: errorMessage(res.error) })
         return

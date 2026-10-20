@@ -1,0 +1,1 @@
+ALTER TABLE `instance_settings` ADD `require_email_verification` integer DEFAULT false NOT NULL;

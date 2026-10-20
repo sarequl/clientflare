@@ -5,6 +5,7 @@ import { and, eq } from 'drizzle-orm'
 import { getAuth } from '#/lib/auth'
 import { getDb, schema } from '#/db'
 import { sha256Hex } from '#/lib/tokens'
+import { readInstanceSettings } from '#/lib/instance'
 
 export const TOKEN_PREFIX = 'cf_'
 
@@ -51,6 +52,11 @@ export const requireSession = createServerOnlyFn(async () => {
   const headers = getRequestHeaders()
   const session = (await sessionFromToken(headers)) ?? (await getAuth().api.getSession({ headers }))
   if (!session) throw redirect({ to: '/login' })
+  // Instance setting: hold unverified accounts at /verify-email. Checked only for
+  // unverified users so verified ones pay nothing. Magic-link sign-in verifies.
+  if (!session.user.emailVerified && (await readInstanceSettings()).requireEmailVerification) {
+    throw redirect({ to: '/verify-email' })
+  }
   return session
 })
 

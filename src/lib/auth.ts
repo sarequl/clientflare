@@ -9,7 +9,7 @@ import { newId } from '#/lib/ids'
 import { linkMail, sendMail } from '#/lib/email'
 import { hashPassword, verifyPassword } from '#/lib/password'
 import { appOrigin } from '#/lib/origin'
-import { canCreateWorkspace, canSignUp } from '#/lib/instance'
+import { canCreateWorkspace, canSignUp, readInstanceSettings } from '#/lib/instance'
 
 function createAuth() {
   const db = getDb()
@@ -29,6 +29,26 @@ function createAuth() {
       enabled: true,
       minPasswordLength: 10,
       password: { hash: hashPassword, verify: verifyPassword },
+    },
+    emailVerification: {
+      // Always wired up; whether a mail actually goes out is an instance setting.
+      // Enforcement lives in requireSession (src/lib/session.ts), which parks
+      // unverified users at /verify-email while the setting is on.
+      sendOnSignUp: true,
+      autoSignInAfterVerification: true,
+      sendVerificationEmail: async ({ user, url }) => {
+        if (!(await readInstanceSettings()).requireEmailVerification) return
+        await sendMail(
+          linkMail({
+            to: user.email,
+            subject: 'Verify your email',
+            heading: 'Verify your email',
+            body: 'Click the button to confirm this address and open Clientflare.',
+            cta: 'Verify email',
+            url,
+          }),
+        )
+      },
     },
     session: {
       cookieCache: { enabled: true, maxAge: 5 * 60 },

@@ -873,10 +873,12 @@ function InstanceTab({ settings }: { settings: NonNullable<Awaited<ReturnType<ty
   const router = useRouter()
   const [openSignup, setOpenSignup] = useState(settings.openSignup)
   const [membersCreate, setMembersCreate] = useState(settings.membersCreateWorkspaces)
+  const [requireVerify, setRequireVerify] = useState(settings.requireEmailVerification)
   const [pending, setPending] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [saved, setSaved] = useState(false)
-  const dirty = openSignup !== settings.openSignup || membersCreate !== settings.membersCreateWorkspaces
+  const dirty =
+    openSignup !== settings.openSignup || membersCreate !== settings.membersCreateWorkspaces || requireVerify !== settings.requireEmailVerification
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault()
@@ -884,7 +886,7 @@ function InstanceTab({ settings }: { settings: NonNullable<Awaited<ReturnType<ty
     setSaved(false)
     setPending(true)
     try {
-      await updateInstanceSettings({ data: { openSignup, membersCreateWorkspaces: membersCreate } })
+      await updateInstanceSettings({ data: { openSignup, membersCreateWorkspaces: membersCreate, requireEmailVerification: requireVerify } })
       setSaved(true)
       await router.invalidate()
     } catch (err) {
@@ -913,6 +915,17 @@ function InstanceTab({ settings }: { settings: NonNullable<Awaited<ReturnType<ty
             <p className="pl-[2.9rem] text-[13px] text-fg-muted">
               Off: only you can create workspaces. Everyone else joins the ones they are invited to. Existing workspaces are untouched.
             </p>
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Switch id="inst-verify" checked={requireVerify} onChange={setRequireVerify} label="Require a verified email" />
+            <p className="pl-[2.9rem] text-[13px] text-fg-muted">
+              On: new accounts get a verification link and are held at a waiting page until they click it. Existing unverified accounts are held too, with a resend button. Signing in with an emailed link counts as verified.
+            </p>
+            {requireVerify && !settings.emailConfigured && (
+              <div className="pl-[2.9rem]">
+                <Notice tone="warn">RESEND_API_KEY is not set on this deployment, so verification links are only printed to the Worker logs. Nobody new will be able to get in.</Notice>
+              </div>
+            )}
           </div>
         </div>
       </Card>

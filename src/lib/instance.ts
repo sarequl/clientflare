@@ -10,13 +10,15 @@ import { getDb, schema } from '#/db'
 
 const ROW_ID = 'default'
 
-export type InstanceSettings = { openSignup: boolean; membersCreateWorkspaces: boolean }
+export type InstanceSettings = { openSignup: boolean; membersCreateWorkspaces: boolean; requireEmailVerification: boolean }
 
-const DEFAULTS: InstanceSettings = { openSignup: true, membersCreateWorkspaces: true }
+const DEFAULTS: InstanceSettings = { openSignup: true, membersCreateWorkspaces: true, requireEmailVerification: false }
 
 export const readInstanceSettings = createServerOnlyFn(async (): Promise<InstanceSettings> => {
   const row = await getDb().query.instanceSettings.findFirst({ where: eq(schema.instanceSettings.id, ROW_ID) })
-  return row ? { openSignup: row.openSignup, membersCreateWorkspaces: row.membersCreateWorkspaces } : DEFAULTS
+  return row
+    ? { openSignup: row.openSignup, membersCreateWorkspaces: row.membersCreateWorkspaces, requireEmailVerification: row.requireEmailVerification }
+    : DEFAULTS
 })
 
 /** The first user ever created. Null on a fresh install. */
