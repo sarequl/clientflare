@@ -1,7 +1,8 @@
 import { useState } from 'react'
-import { Link, createFileRoute, useNavigate, useRouter } from '@tanstack/react-router'
+import { Link, createFileRoute, redirect, useNavigate, useRouter } from '@tanstack/react-router'
 import { getSession } from '#/lib/session'
 import { acceptInvitation, getInvitation } from '#/features/workspaces/server'
+import { getVerificationState } from '#/features/instance/server'
 import { errorMessage } from '#/lib/format'
 import { AuthShell, textLink } from '#/components/AuthShell'
 import { Button, buttonClass } from '#/components/Button'
@@ -10,7 +11,13 @@ import { signOut } from '#/lib/auth-client'
 
 export const Route = createFileRoute('/invite/$invitationId')({
   loader: async ({ params }) => {
-    const [invitation, session] = await Promise.all([getInvitation({ data: { invitationId: params.invitationId } }), getSession()])
+    const [invitation, session, verification] = await Promise.all([
+      getInvitation({ data: { invitationId: params.invitationId } }),
+      getSession(),
+      getVerificationState(),
+    ])
+    // Accepting needs a verified email when the instance requires one; park them first and come back.
+    if (verification.state === 'pending') throw redirect({ to: '/verify-email', search: { redirect: `/invite/${params.invitationId}` } })
     return { invitation, user: session ? { email: session.user.email, name: session.user.name } : null }
   },
   head: () => ({ meta: [{ title: 'Invitation · Clientflare' }] }),
