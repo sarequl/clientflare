@@ -81,7 +81,7 @@ function SettingsPage() {
 
   // One width for every tab, strip included, so switching tabs never shifts the layout.
   return (
-    <div className="max-w-3xl">
+    <div className="max-w-4xl">
       <PageHeader title="Settings" />
       <Tabs label="Settings sections" className="mb-5">
         {tabs.map((t) => (

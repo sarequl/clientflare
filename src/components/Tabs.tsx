@@ -3,8 +3,8 @@ import { createLink } from '@tanstack/react-router'
 
 /**
  * Underlined tab strip. Scrolls sideways on narrow screens with the scrollbar
- * hidden; the border sits on the container and the underline on each link, so
- * nothing overflows vertically.
+ * hidden, wraps onto a second row from sm up; the border sits on the container
+ * and the underline on each link, so nothing overflows vertically.
  */
 export function Tabs({ label, className = '', children }: { label: string; className?: string; children: ReactNode }) {
   const ref = useRef<HTMLElement>(null)
@@ -36,7 +36,7 @@ export function Tabs({ label, className = '', children }: { label: string; class
     <nav
       ref={ref}
       aria-label={label}
-      className={`-mx-4 flex gap-1 overflow-x-auto overflow-y-hidden border-b border-border px-4 [scrollbar-width:none] sm:mx-0 sm:px-0 [&::-webkit-scrollbar]:hidden ${fade} ${className}`}
+      className={`-mx-4 flex gap-1 overflow-x-auto overflow-y-hidden border-b border-border px-4 [scrollbar-width:none] sm:mx-0 sm:flex-wrap sm:px-0 [&::-webkit-scrollbar]:hidden ${fade} ${className}`}
     >
       {children}
     </nav>
