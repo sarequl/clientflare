@@ -96,7 +96,7 @@ Built in this order so the tool is useful for personal work from the first phase
 - [x] Setup wizard
 - [x] MCP server with personal API tokens (pulled forward from later phases)
 - [x] Instance settings: invite-only signup, who may create workspaces, optional email verification (first account is the instance admin)
-- [ ] Public OSS release
+- [x] Public OSS release: v0.1.0 tagged 2026-10-20
 
 **Phase 3: v1.x**
 
