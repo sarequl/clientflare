@@ -5,6 +5,8 @@ on:
   pull_request:
 jobs:
   check:
+    # Only upstream runs CI; deploy-button copies build on Cloudflare instead.
+    if: github.repository == 'sarequl/clientflare'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

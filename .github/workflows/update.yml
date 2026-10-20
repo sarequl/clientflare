@@ -1,13 +1,12 @@
 # Keeps a "Deploy to Cloudflare" copy of Clientflare current with upstream.
 #
-# Cloudflare's deploy button copies this repo into your GitHub account, so
-# GitHub's "Sync fork" button is not available. This workflow does the same:
-# fetch upstream, fast-forward main, push. The push triggers Cloudflare's
+# Cloudflare's deploy button copies this repo into your GitHub account (and
+# strips .github, so this file arrives with the first manual update). It runs
+# scripts/update-from-upstream.sh and pushes; the push triggers Cloudflare's
 # build, which runs the database migrations.
 #
 # Run it from the Actions tab ("Update from upstream" → "Run workflow"), or let
-# the weekly schedule do it. If you have committed your own changes, the
-# fast-forward refuses and the run fails; merge by hand in that case.
+# the weekly schedule do it. Real merge conflicts fail the run; merge by hand.
 name: Update from upstream
 
 on:
@@ -27,16 +26,10 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Fast-forward main to upstream
+      - name: Merge upstream
         run: |
-          git remote add upstream https://github.com/sarequl/clientflare.git
-          git fetch upstream main
-          if git merge-base --is-ancestor upstream/main HEAD; then
-            echo "Already up to date."
-            exit 0
-          fi
-          if ! git merge --ff-only upstream/main; then
-            echo "::error::Your copy has its own commits, so it cannot be fast-forwarded. Merge upstream by hand: git pull https://github.com/sarequl/clientflare main"
-            exit 1
-          fi
-          git push origin HEAD:main
+          git config user.name "clientflare-update"
+          git config user.email "noreply@users.noreply.github.com"
+          sh scripts/update-from-upstream.sh
+      - name: Push
+        run: git push origin HEAD:main
