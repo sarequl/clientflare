@@ -132,4 +132,4 @@ Built in this order so the tool is useful for personal work from the first phase
 - [x] **Licence:** AGPL-3.0.
 - [x] **Tenancy:** one D1 per install, workspaces as rows.
 - [x] **Base currency:** per workspace, plus a personal base currency per user.
-- [ ] **Product name and repo name.** ("Clientflare" is the working name.)
+- [x] **Product name and repo name:** Clientflare, github.com/sarequl/clientflare. The -flare suffix is the pitch (your Cloudflare account, one click, free tier), same convention as Mailflare, UptimeFlare, FlareDrive.
