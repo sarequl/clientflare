@@ -61,7 +61,7 @@ Freelancer tools charge \$20 to \$60 a month to join the same five steps: lead, 
 git clone https://github.com/sarequl/clientflare && cd clientflare
 pnpm install
 wrangler login
-pnpm deploy                              # build, deploy, provision D1 + R2, run migrations
+pnpm run deploy                          # build, deploy, provision D1 + R2, run migrations
 wrangler secret put BETTER_AUTH_SECRET   # paste the output of: openssl rand -base64 32
 wrangler secret put RESEND_API_KEY       # optional until you want email
 ```
@@ -73,7 +73,19 @@ wrangler secret put RESEND_API_KEY       # optional until you want email
 | `EMAIL_FROM` | with Resend | A sender on a domain your Resend account verifies. Ignored until `RESEND_API_KEY` is set. |
 | `APP_URL` | no | Not asked for. The app uses whatever hostname it is served from, custom domains included. Add it as a variable in the dashboard only if you serve one deployment from several hostnames. |
 
-Open your Worker's URL, create the first account, and the setup wizard takes it from there. Later releases are a `git pull` and `pnpm deploy`; migrations run as part of it.
+Open your Worker's URL, create the first account, and the setup wizard takes it from there. The first account is the instance admin: it can close signup and decide who may create workspaces under **Settings → Instance**.
+
+## Updating
+
+**Button deployments** got their own copy of this repo on GitHub, and Cloudflare redeploys it on every push to `main`. The deploy step runs the database migrations, so updating is a merge and a push:
+
+```sh
+git remote add upstream https://github.com/sarequl/clientflare   # once
+git pull upstream main
+git push
+```
+
+**Hand deployments** are `git pull` followed by `pnpm run deploy`.
 
 ## Talk to it from Claude (MCP)
 
