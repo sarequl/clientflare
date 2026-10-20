@@ -2,7 +2,7 @@
  * Seed a demo user with a workspace full of realistic data, so you can see the
  * CRM the way it looks after six months of use.
  *
- *   pnpm seed:demo                          # nabil@gmail.com / demo1234, local D1
+ *   pnpm seed:demo                          # demo@example.com / demo1234, local D1
  *   pnpm seed:demo -- --email you@x.com --password secret
  *   pnpm seed:demo -- --remote              # against the deployed D1 (asks for confirmation)
  *
@@ -31,10 +31,10 @@ const flag = (name: string) => {
   const i = argv.indexOf(`--${name}`)
   return i >= 0 ? argv[i + 1] : undefined
 }
-const EMAIL = flag('email') ?? 'nabil@gmail.com'
+const EMAIL = flag('email') ?? 'demo@example.com'
 const PASSWORD = flag('password')
 const REMOTE = argv.includes('--remote')
-const NAME = flag('name') ?? 'Nabil'
+const NAME = flag('name') ?? 'Demo'
 const WORKSPACE_NAME = flag('workspace') ?? 'Demo Studio'
 const CUR = 'USD'
 const TZ = 'Asia/Dhaka'

@@ -1,6 +1,6 @@
 # Clientflare
 
-Self-hosted CRM for freelancers on Cloudflare Workers. Plan: `docs/CRM plan.md`. Finance assumptions: `docs/finance-phase1-assumptions.md`. Licence: AGPL-3.0.
+Self-hosted CRM for freelancers on Cloudflare Workers. Plan: `docs/roadmap.md`. Finance assumptions: `docs/finance-phase1-assumptions.md`. Licence: AGPL-3.0. `worker-configuration.d.ts` is generated (`pnpm cf-typegen`) and committed so the deploy button needs no typegen step.
 
 ## Stack (locked)
 
@@ -50,4 +50,4 @@ Polymorphic records: tags, custom fields, activities and files key on `(recordTy
 
 ## Roadmap pointer
 
-v1 (Phase 1 + Phase 2) is complete. Repo: github.com/sarequl/clientflare. See the roadmap in `docs/CRM plan.md`.
+v1 (Phase 1 + Phase 2) is complete. Repo: github.com/sarequl/clientflare. See the roadmap in `docs/roadmap.md`.

@@ -1,8 +1,6 @@
-# Open-source Cloudflare CRM: product plan
+# Clientflare roadmap
 
-Oct 19, 2026 · @Sarequl Basar
-
-A free, self-hosted CRM for indie hackers, freelancers and small agencies that anyone can deploy to their own Cloudflare account in one click. The finance module has its own detailed spec: CRM Finance Module: Income, Expenses & Set-Asides
+A free, self-hosted CRM for indie hackers, freelancers and small agencies that anyone can deploy to their own Cloudflare account in one click. The finance module assumptions are in `finance-phase1-assumptions.md`.
 
 ## Product
 
