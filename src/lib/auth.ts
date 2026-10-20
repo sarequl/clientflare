@@ -66,6 +66,10 @@ function createAuth() {
         organizationLimit: 20,
         creatorRole: 'owner',
         invitationExpiresIn: 60 * 60 * 24 * 7,
+        // Better Auth turns this on whenever generateId is customised, assuming the
+        // ids might be guessable. Ours carry 74 random bits and accepting already
+        // requires the signed-in email to match, and we send no verification mail.
+        requireEmailVerificationOnInvitation: false,
         sendInvitationEmail: async (data) => {
           const url = `${appOrigin()}/invite/${data.id}`
           await sendMail(
