@@ -3,3 +3,5 @@
 BETTER_AUTH_SECRET=change-me-to-a-long-random-string
 # Leave empty locally: emails are printed to the console instead of sent.
 RESEND_API_KEY=
+# Dev only: send Resend API calls to a stub server instead of api.resend.com.
+# RESEND_BASE_URL=http://localhost:3999

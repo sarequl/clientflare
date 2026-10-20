@@ -31,7 +31,7 @@ v1 is the confirmed scope plus invoices and the finance module, because those ma
 | Tasks and follow-ups | Due date, assignee, link to contact or deal, "Today" and "Overdue" views, email reminders | Recurring tasks, follow-up sequences |
 | Files | Upload to R2, attach to contacts, deals and invoices | Previews, versioning, share to portal per file |
 | Client portal | Invite-only, magic-link login; client sees their files, invoices and shared notes | Custom portal domain and branding, approvals, comments, pay invoice online |
-| Invoices | Line items, tax, PDF, statuses draft / sent / paid / void; paid creates income | Quotes → invoice, recurring invoices, payment links (Stripe, Lemon Squeezy), reminders for overdue |
+| Invoices | Line items, tax, PDF, statuses draft / sent / paid / void; email to client, resend and overdue reminder; paid creates income | Quotes → invoice, recurring invoices, payment links (Stripe, Lemon Squeezy), automatic overdue reminders |
 | Finance | Income, expenses, set-aside rules, payouts (see Finance module tab) | Profit basis, imports, zakat calculator |
 | Dashboard | Pipeline value by stage, income this month, tasks due, overdue invoices | Custom reports, charts over time |
 | Search | Global quick search across contacts, companies, deals (D1 full-text) | Saved filters and views |
@@ -102,7 +102,8 @@ Built in this order so the tool is useful for personal work from the first phase
 
 - [ ] Public REST API, outgoing webhooks (API tokens shipped in v1)
 - [ ] Payment links and payment webhooks (Stripe, Lemon Squeezy, Paddle)
-- [ ] Quotes → invoice, recurring invoices, overdue reminders
+- [x] Email invoices to clients, resend, one-click overdue reminder
+- [ ] Quotes → invoice, recurring invoices, automatic overdue reminders
 - [ ] Projects and time tracking
 - [ ] Google / GitHub login, 2FA
 

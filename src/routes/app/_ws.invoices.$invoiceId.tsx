@@ -3,6 +3,7 @@ import { Link, createFileRoute, notFound, useNavigate, useRouter } from '@tansta
 import {
   deleteInvoice,
   duplicateInvoice,
+  emailInvoice,
   getInvoice,
   markInvoicePaid,
   markInvoiceSent,
@@ -13,7 +14,7 @@ import {
 import { listSetAsides } from '#/features/finance/server'
 import { computeTotals } from '#/lib/invoice-math'
 import { formatMoney, parseMoney } from '#/lib/money'
-import { dayOf, errorMessage, formatDay, formatLongDay, formatPercentBp, minorToInput, todayISO } from '#/lib/format'
+import { dayOf, errorMessage, formatDay, formatDayAt, formatLongDay, formatPercentBp, minorToInput, todayISO } from '#/lib/format'
 import { Card, CardHeader, Notice } from '#/components/Card'
 import { Button, IconButton, buttonClass } from '#/components/Button'
 import { Checkbox, CurrencySelect, Field, Input, Textarea } from '#/components/Field'
@@ -26,7 +27,7 @@ import { revisedDay } from '#/components/invoice-templates/shared'
 import { InvoiceStatusBadge, formatQuantity, parseQuantity, parseTaxPercent } from '#/components/InvoiceStatusBadge'
 import { Money } from '#/components/Money'
 import { useApp } from '#/components/useApp'
-import { IconArrowDown, IconArrowUp, IconCheck, IconChevronLeft, IconPencil, IconPlus, IconSend, IconTrash, IconX } from '#/components/icons'
+import { IconArrowDown, IconArrowUp, IconCheck, IconChevronLeft, IconMail, IconPencil, IconPlus, IconSend, IconTrash, IconX } from '#/components/icons'
 import { IconBan, IconCopy, IconExternal, IconPrinter, IconUndo } from '#/components/icons-invoice'
 
 export const Route = createFileRoute('/app/_ws/invoices/$invoiceId')({
@@ -41,9 +42,11 @@ export const Route = createFileRoute('/app/_ws/invoices/$invoiceId')({
 
 type Loaded = Awaited<ReturnType<typeof getInvoice>> & {}
 type Invoice = Loaded['invoice']
+type EmailConfig = Loaded['email']
 type Rule = { id: string; name: string; percentBp: number; active: boolean }
 type Flash =
-  | { kind: 'sent'; number: string }
+  | { kind: 'sent'; number: string; emailedTo?: string | null; emailError?: string | null }
+  | { kind: 'emailed'; number: string; to: string }
   | { kind: 'paid'; amountMinor: number; currency: string; lines: { name: string; percentBp: number; amountMinor: number }[] }
   | { kind: 'info'; text: string }
 
@@ -56,7 +59,7 @@ function useBusiness(business: Loaded['business']): BusinessBlock {
 }
 
 function InvoicePage() {
-  const { invoice, business: rawBusiness, rules } = Route.useLoaderData()
+  const { invoice, business: rawBusiness, rules, email } = Route.useLoaderData()
   const business = useBusiness(rawBusiness)
   const [flash, setFlash] = useState<Flash | null>(null)
   // Revising a sent invoice. Only meaningful while it is still sent; paid or void falls back to the read view.
@@ -78,14 +81,15 @@ function InvoicePage() {
         </div>
       )}
       {invoice.status === 'draft' ? (
-        <DraftEditor key={invoice.id} invoice={invoice} onFlash={setFlash} />
+        <DraftEditor key={invoice.id} invoice={invoice} business={business} email={email} onFlash={setFlash} />
       ) : revising && invoice.status === 'sent' ? (
-        <DraftEditor key={`${invoice.id}-revision`} mode="revision" invoice={invoice} onFlash={setFlash} onExit={() => setRevising(false)} />
+        <DraftEditor key={`${invoice.id}-revision`} mode="revision" invoice={invoice} business={business} email={email} onFlash={setFlash} onExit={() => setRevising(false)} />
       ) : (
         <IssuedView
           key={`${invoice.id}-${invoice.status}`}
           invoice={invoice}
           business={business}
+          email={email}
           rules={rules}
           onFlash={setFlash}
           onEdit={() => {
@@ -101,13 +105,25 @@ function InvoicePage() {
 
 function FlashNotice({ flash, onDismiss }: { flash: Flash; onDismiss: () => void }) {
   if (flash.kind === 'info') return <Notice tone="accent" onDismiss={onDismiss}>{flash.text}</Notice>
-  if (flash.kind === 'sent')
+  if (flash.kind === 'emailed')
     return (
       <Notice tone="accent" onDismiss={onDismiss}>
+        Emailed <span className="tnum">{flash.number}</span> to {flash.to}.
+      </Notice>
+    )
+  if (flash.kind === 'sent')
+    return (
+      <Notice tone={flash.emailError ? 'warn' : 'accent'} onDismiss={onDismiss}>
         <p className="font-medium">
-          Marked as sent. This is invoice <span className="tnum">{flash.number}</span>.
+          {flash.emailedTo ? 'Sent' : 'Marked as sent'}. This is invoice <span className="tnum">{flash.number}</span>.
         </p>
-        <p className="mt-0.5">Copy the share link below and send it to your client.</p>
+        {flash.emailError ? (
+          <p className="mt-0.5">The email did not go out: {flash.emailError}. Use Email to try again, or copy the share link.</p>
+        ) : flash.emailedTo ? (
+          <p className="mt-0.5">Emailed to {flash.emailedTo}.</p>
+        ) : (
+          <p className="mt-0.5">Copy the share link below and send it to your client.</p>
+        )}
       </Notice>
     )
   return (
@@ -234,7 +250,21 @@ type EditorMode = 'draft' | 'revision'
  * Drafts autosave and can be sent or deleted. In `revision` mode (a sent, unpaid invoice) the same
  * form keeps edits local until "Save changes", which confirms and sends one update; the number is kept.
  */
-function DraftEditor({ invoice, onFlash, mode = 'draft', onExit }: { invoice: Invoice; onFlash: (f: Flash | null) => void; mode?: EditorMode; onExit?: () => void }) {
+function DraftEditor({
+  invoice,
+  business,
+  email,
+  onFlash,
+  mode = 'draft',
+  onExit,
+}: {
+  invoice: Invoice
+  business: BusinessBlock
+  email: EmailConfig
+  onFlash: (f: Flash | null) => void
+  mode?: EditorMode
+  onExit?: () => void
+}) {
   const router = useRouter()
   const navigate = useNavigate()
   const revision = mode === 'revision'
@@ -377,7 +407,15 @@ function DraftEditor({ invoice, onFlash, mode = 'draft', onExit }: { invoice: In
     else window.open(url, '_blank')
   }
 
-  async function onMarkSent() {
+  async function openSend() {
+    setSendError(null)
+    // Flush so the dialog sees the contact that is actually on the invoice.
+    const ok = await flush()
+    if (ok) await router.invalidate()
+    setSending(true)
+  }
+
+  async function onMarkSent(email: SendPayload | null) {
     setSendPending(true)
     setSendError(null)
     try {
@@ -386,9 +424,9 @@ function DraftEditor({ invoice, onFlash, mode = 'draft', onExit }: { invoice: In
         setSendError('Fix the highlighted fields first.')
         return
       }
-      const { number } = await markInvoiceSent({ data: { id: invoice.id } })
+      const { number, emailError } = await markInvoiceSent({ data: { id: invoice.id, email: email ?? undefined } })
       await router.invalidate()
-      onFlash({ kind: 'sent', number })
+      onFlash({ kind: 'sent', number, emailedTo: email && !emailError ? email.to : null, emailError })
     } catch (err) {
       setSendError(errorMessage(err, 'Could not mark the invoice sent.'))
     } finally {
@@ -481,15 +519,8 @@ function DraftEditor({ invoice, onFlash, mode = 'draft', onExit }: { invoice: In
               <span className="hidden sm:inline">Print / PDF</span>
               <span className="sm:hidden">PDF</span>
             </Button>
-            <Button
-              variant="primary"
-              icon={<IconSend />}
-              onClick={() => {
-                setSendError(null)
-                setSending(true)
-              }}
-            >
-              Mark as sent
+            <Button variant="primary" icon={<IconSend />} onClick={openSend}>
+              Send
             </Button>
             <OverflowMenu
               items={[
@@ -738,31 +769,21 @@ function DraftEditor({ invoice, onFlash, mode = 'draft', onExit }: { invoice: In
         confirmLabel="Discard changes"
       />
 
-      <Modal open={sending} onClose={() => !sendPending && setSending(false)} title="Mark as sent?" size="sm">
-        <div className="text-sm text-fg-muted">
-          <p>
-            This gives the invoice its number. You can still edit it until it's paid; edits after sending show on the document as a revised date.
-          </p>
-          <p className="mt-2">
-            Total: <Money minor={totals.totalMinor} currency={draft.currency} className="font-semibold text-fg" />
-          </p>
-          {hasErrors && <p className="mt-2 text-danger">Some fields need fixing before this can go out.</p>}
-          {built.lines.length === 0 && <p className="mt-2 text-danger">Add at least one line item first.</p>}
-        </div>
-        {sendError && (
-          <p className="mt-3 text-[13px] text-danger" role="alert">
-            {sendError}
-          </p>
-        )}
-        <ModalActions>
-          <Button onClick={() => setSending(false)} disabled={sendPending} data-autofocus>
-            Cancel
-          </Button>
-          <Button variant="primary" onClick={onMarkSent} pending={sendPending} disabled={hasErrors || built.lines.length === 0}>
-            Mark as sent
-          </Button>
-        </ModalActions>
-      </Modal>
+      <SendDialog
+        open={sending}
+        mode="send"
+        invoice={invoice}
+        business={business}
+        email={email}
+        totalMinor={totals.totalMinor}
+        currency={draft.currency}
+        dueOn={draft.dueOn || null}
+        blocked={hasErrors ? 'Some fields need fixing before this can go out.' : built.lines.length === 0 ? 'Add at least one line item first.' : null}
+        pending={sendPending}
+        error={sendError}
+        onClose={() => !sendPending && setSending(false)}
+        onSubmit={onMarkSent}
+      />
 
       <ConfirmDialog
         open={deleting}
@@ -813,12 +834,14 @@ function SaveIndicator({ status, error, onRetry }: { status: SaveStatus; error: 
 function IssuedView({
   invoice,
   business,
+  email,
   rules,
   onFlash,
   onEdit,
 }: {
   invoice: Invoice
   business: BusinessBlock
+  email: EmailConfig
   rules: Rule[]
   onFlash: (f: Flash | null) => void
   onEdit: () => void
@@ -826,6 +849,9 @@ function IssuedView({
   const router = useRouter()
   const navigate = useNavigate()
   const [origin, setOrigin] = useState('')
+  const [emailing, setEmailing] = useState(false)
+  const [emailPending, setEmailPending] = useState(false)
+  const [emailError, setEmailError] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
   const [paying, setPaying] = useState(false)
   const [confirm, setConfirm] = useState<'void' | 'unpaid' | null>(null)
@@ -848,6 +874,22 @@ function IssuedView({
       setTimeout(() => setCopied(false), 1800)
     } catch {
       setActionError('Could not copy. Select the link and copy it by hand.')
+    }
+  }
+
+  async function onEmail(payload: SendPayload | null) {
+    if (!payload) return
+    setEmailPending(true)
+    setEmailError(null)
+    try {
+      await emailInvoice({ data: { id: invoice.id, ...payload } })
+      await router.invalidate()
+      setEmailing(false)
+      onFlash({ kind: 'emailed', number: invoice.number ?? '', to: payload.to })
+    } catch (err) {
+      setEmailError(errorMessage(err, 'Could not send the email.'))
+    } finally {
+      setEmailPending(false)
     }
   }
 
@@ -916,6 +958,15 @@ function IssuedView({
               <Button icon={<IconPencil />} onClick={onEdit}>
                 Edit
               </Button>
+              <Button
+                icon={<IconMail />}
+                onClick={() => {
+                  setEmailError(null)
+                  setEmailing(true)
+                }}
+              >
+                {overdue ? 'Remind' : 'Email'}
+              </Button>
               <Button variant="primary" icon={<IconCheck />} onClick={() => setPaying(true)}>
                 Mark paid
               </Button>
@@ -983,6 +1034,26 @@ function IssuedView({
                 {invoice.dueOn ? formatLongDay(invoice.dueOn) : '—'}
                 {overdue && ' · overdue'}
               </dd>
+              {invoice.status !== 'void' && (
+                <>
+                  <dt className="text-fg-muted">Emailed</dt>
+                  <dd className="min-w-0">
+                    {invoice.emailedAt && invoice.emailedTo ? (
+                      <>
+                        <span className="block truncate" title={invoice.emailedTo}>
+                          {invoice.emailedTo}
+                        </span>
+                        <span className="tnum text-fg-muted">
+                          {formatDayAt(invoice.emailedAt, app.workspace.timezone)}
+                          {invoice.emailCount > 1 && ` · ${invoice.emailCount}×`}
+                        </span>
+                      </>
+                    ) : (
+                      <span className="text-fg-subtle">Not yet</span>
+                    )}
+                  </dd>
+                </>
+              )}
               {invoice.status === 'paid' && (
                 <>
                   <dt className="text-fg-muted">Paid</dt>
@@ -1033,6 +1104,21 @@ function IssuedView({
         </div>
       </div>
 
+      <SendDialog
+        open={emailing}
+        mode={overdue ? 'remind' : 'resend'}
+        invoice={invoice}
+        business={business}
+        email={email}
+        totalMinor={invoice.totalMinor}
+        currency={invoice.currency}
+        dueOn={invoice.dueOn}
+        blocked={null}
+        pending={emailPending}
+        error={emailError}
+        onClose={() => !emailPending && setEmailing(false)}
+        onSubmit={onEmail}
+      />
       <Modal open={paying} onClose={() => setPaying(false)} title={`Mark ${invoice.number} paid`} size="sm">
         {paying && (
           <MarkPaidForm
@@ -1122,5 +1208,156 @@ function MarkPaidForm({ invoice, rules, onCancel, onDone }: { invoice: Invoice; 
         </Button>
       </ModalActions>
     </form>
+  )
+}
+
+// ── Send / email dialog ─────────────────────────────────────────────────────
+
+type SendPayload = { to: string; subject: string; message: string; copyMe: boolean }
+type SendMode = 'send' | 'resend' | 'remind'
+
+function defaultSubject(mode: SendMode, number: string, business: string) {
+  return mode === 'remind' ? `Reminder: invoice ${number} is due` : `Invoice ${number} from ${business}`
+}
+
+function defaultMessage(mode: SendMode, args: { first: string | null; number: string; total: string; dueOn: string | null; business: string }) {
+  const hi = args.first ? `Hi ${args.first},` : 'Hi,'
+  const due = args.dueOn ? formatLongDay(args.dueOn) : null
+  const body =
+    mode === 'remind'
+      ? `A quick reminder that invoice ${args.number} for ${args.total}${due ? ` was due on ${due}` : ' is still open'}. The link below has the details and a printable copy.`
+      : `Please find invoice ${args.number} for ${args.total}${due ? `, due ${due}` : ''}. The link below has the details and a printable copy.`
+  return `${hi}\n\n${body}\n\nThanks,\n${args.business}`
+}
+
+/**
+ * One dialog for the three moments an invoice goes out: first send (optionally without email),
+ * sending again, and an overdue reminder. Prefills recipient, subject and message; all editable.
+ */
+function SendDialog({
+  open,
+  mode,
+  invoice,
+  business,
+  email,
+  totalMinor,
+  currency,
+  dueOn,
+  blocked,
+  pending,
+  error,
+  onClose,
+  onSubmit,
+}: {
+  open: boolean
+  mode: SendMode
+  invoice: Invoice
+  business: BusinessBlock
+  email: EmailConfig
+  totalMinor: number
+  currency: string
+  dueOn: string | null
+  blocked: string | null
+  pending: boolean
+  error: string | null
+  onClose: () => void
+  onSubmit: (payload: SendPayload | null) => void
+}) {
+  const contactEmail = invoice.contact?.email ?? ''
+  const prefill = useCallback(() => {
+    const total = formatMoney(totalMinor, currency)
+    return {
+      to: contactEmail,
+      subject: defaultSubject(mode, email.number, business.name),
+      message: defaultMessage(mode, { first: invoice.contact?.firstName ?? null, number: email.number, total, dueOn, business: business.name }),
+    }
+  }, [contactEmail, mode, email.number, business.name, totalMinor, currency, dueOn, invoice.contact?.firstName])
+  const [form, setForm] = useState(prefill)
+  const [sendEmail, setSendEmail] = useState(email.configured && !!contactEmail)
+  const [copyMe, setCopyMe] = useState(false)
+  const [touched, setTouched] = useState(false)
+
+  // Re-prefill each time the dialog opens, unless the user has already typed in this one.
+  useEffect(() => {
+    if (!open) {
+      setTouched(false)
+      return
+    }
+    if (touched) return
+    setForm(prefill())
+    setSendEmail(email.configured && !!contactEmail)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, prefill])
+
+  const emailing = mode !== 'send' || sendEmail
+  const toValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.to.trim())
+  const formOk = !emailing || (toValid && form.subject.trim() && form.message.trim())
+  const title = mode === 'send' ? 'Send invoice' : mode === 'remind' ? 'Send a reminder' : 'Email invoice again'
+
+  function submit(e: FormEvent) {
+    e.preventDefault()
+    if (blocked || !formOk) return
+    onSubmit(emailing ? { to: form.to.trim(), subject: form.subject.trim(), message: form.message.trim(), copyMe } : null)
+  }
+
+  const set = (patch: Partial<typeof form>) => {
+    setTouched(true)
+    setForm((f) => ({ ...f, ...patch }))
+  }
+
+  return (
+    <Modal open={open} onClose={onClose} title={title}>
+      <form onSubmit={submit} className="flex flex-col gap-4">
+        {mode === 'send' && (
+          <p className="text-sm text-fg-muted">
+            This gives the invoice its number, <span className="tnum font-medium text-fg">{email.number}</span>. Total{' '}
+            <Money minor={totalMinor} currency={currency} className="font-semibold text-fg" />. You can still edit it until it's paid.
+          </p>
+        )}
+        {blocked && (
+          <Notice tone="danger">{blocked}</Notice>
+        )}
+        {mode === 'send' && (
+          <Checkbox
+            id="send-email"
+            label="Email it to the client"
+            hint={email.configured ? 'Off: the invoice is marked sent and you share the link yourself.' : 'Email is not set up on this deployment. Add RESEND_API_KEY to send from here.'}
+            checked={sendEmail}
+            disabled={!email.configured}
+            onChange={(e) => setSendEmail(e.target.checked)}
+          />
+        )}
+        {mode !== 'send' && !email.configured && (
+          <Notice tone="warn">Email is not set up on this deployment. Add RESEND_API_KEY to send from here.</Notice>
+        )}
+        {emailing && (
+          <>
+            <Field label="To" htmlFor="send-to" error={touched && form.to && !toValid ? 'Enter a valid email address.' : null} hint={!contactEmail && !form.to ? 'The linked contact has no email. Type one here.' : undefined}>
+              <Input id="send-to" type="email" inputMode="email" autoComplete="off" value={form.to} onChange={(e) => set({ to: e.target.value })} placeholder="client@example.com" data-autofocus={!contactEmail || undefined} />
+            </Field>
+            <Field label="Subject" htmlFor="send-subject">
+              <Input id="send-subject" value={form.subject} onChange={(e) => set({ subject: e.target.value })} />
+            </Field>
+            <Field label="Message" htmlFor="send-message" hint={`The invoice summary and a "View invoice" button follow your message. Replies go to ${email.replyTo}.`}>
+              <Textarea id="send-message" rows={7} value={form.message} onChange={(e) => set({ message: e.target.value })} />
+            </Field>
+            <Checkbox id="send-copy" label="Send me a copy" checked={copyMe} onChange={(e) => setCopyMe(e.target.checked)} />
+          </>
+        )}
+        {error && (
+          <p className="text-[13px] text-danger" role="alert">
+            {error}
+          </p>
+        )}
+        <ModalActions>
+          <Button onClick={onClose} disabled={pending}>
+            Cancel
+          </Button>
+          <Button type="submit" variant="primary" icon={emailing ? <IconMail /> : <IconSend />} pending={pending} disabled={!!blocked || !formOk || (emailing && !email.configured)}>
+            {mode === 'send' ? (emailing ? 'Send invoice' : 'Mark as sent') : mode === 'remind' ? 'Send reminder' : 'Send email'}
+          </Button>
+        </ModalActions>
+      </form>
+    </Modal>
   )
 }

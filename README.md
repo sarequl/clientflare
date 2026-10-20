@@ -36,7 +36,7 @@ Freelancer tools charge \$20 to \$60 a month to join the same five steps: lead, 
 - **Contacts and companies** with tags, custom fields, CSV import and export, and a timeline of notes, calls, meetings and changes.
 - **Deals** on a drag-and-drop pipeline, with win and loss tracking and a table view.
 - **Tasks** with due dates and a morning digest email.
-- **Invoices** that go from draft to sent to paid, with four templates, a public link your client can print, and revisions after sending. Paid invoices flow into income automatically.
+- **Invoices** that go from draft to sent to paid, with four templates, a public link your client can print, and revisions after sending. Send emails the invoice to the client with a reply-to of your business address, and overdue invoices get a one-click reminder. Paid invoices flow into income automatically.
 - **Personal finance**: income, expenses, set-aside rules (tax, savings, giving) and payouts, per currency. Private to you, even inside a shared workspace.
 - **Client portal** where customers see their invoices, shared notes and files through a magic link.
 - **Workspaces** with owner, admin and member roles, email invites, and several businesses on one install. The first account can make the deployment invite-only and decide who may create workspaces.
@@ -69,7 +69,7 @@ wrangler secret put RESEND_API_KEY       # optional until you want email
 | Setting | Required | Notes |
 | --- | --- | --- |
 | `BETTER_AUTH_SECRET` | yes | Signs sessions. Any 32+ byte random string. |
-| `RESEND_API_KEY` | no | Sign-in links, invites and digests. Without it, nothing is emailed. |
+| `RESEND_API_KEY` | no | Sign-in links, invites, task digests and invoices to clients. Without it, nothing is emailed. |
 | `EMAIL_FROM` | with Resend | A sender on a domain your Resend account verifies. Ignored until `RESEND_API_KEY` is set. |
 | `APP_URL` | no | Not asked for. The app uses whatever hostname it is served from, custom domains included. Add it as a variable in the dashboard only if you serve one deployment from several hostnames. |
 

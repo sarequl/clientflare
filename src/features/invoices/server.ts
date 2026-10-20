@@ -1,4 +1,5 @@
 import { createServerFn } from '@tanstack/react-start'
+import { env } from 'cloudflare:workers'
 import { and, asc, desc, eq, like, or, sql } from 'drizzle-orm'
 import { z } from 'zod'
 import { getDb, schema } from '#/db'
@@ -9,6 +10,10 @@ import { activityInsert } from '#/features/activities/server'
 import { recordIncome } from '#/features/finance/server'
 import { computeTotals } from '#/lib/invoice-math'
 import { todayIn } from '#/lib/dates'
+import { invoiceMail, sendMail } from '#/lib/email'
+import { appOrigin } from '#/lib/origin'
+import { formatMoney } from '#/lib/money'
+import { formatLongDay } from '#/lib/format'
 import { HEX_COLOR, INVOICE_TEMPLATE_IDS, resolveTemplateId } from '#/lib/invoice-templates'
 
 const ISO_DATE = z.string().regex(/^\d{4}-\d{2}-\d{2}$/)
@@ -135,7 +140,76 @@ export const getInvoice = createServerFn({ method: 'GET' })
       db.query.organization.findFirst({ where: eq(schema.organization.id, ctx.workspaceId), columns: { name: true } }),
     ])
     if (!inv) return null
-    return { invoice: inv, business: businessBlock(settings, org?.name ?? '') }
+    return {
+      invoice: inv,
+      business: businessBlock(settings, org?.name ?? ''),
+      email: {
+        configured: !!env.RESEND_API_KEY,
+        /** The number this invoice has, or will get when sent. Lets the send dialog prefill a subject. */
+        number: inv.number ?? nextNumber(settings),
+        replyTo: settings?.businessEmail ?? ctx.user.email,
+      },
+    }
+  })
+
+const nextNumber = (s: { invoicePrefix: string; nextInvoiceNumber: number } | undefined) => `${s?.invoicePrefix ?? 'INV-'}${String(s?.nextInvoiceNumber ?? 1).padStart(4, '0')}`
+
+const emailInput = z.object({
+  to: z.string().trim().email().max(200),
+  subject: z.string().trim().min(1).max(200),
+  message: z.string().trim().min(1).max(5000),
+  copyMe: z.boolean().default(false),
+})
+
+/**
+ * Email a numbered invoice to the client and remember that it went out. Runs after the
+ * status change is committed, so a mail failure leaves a sent invoice that can be re-emailed.
+ */
+async function sendInvoiceEmail(ctx: { workspaceId: string; user: { id: string; email: string } }, inv: NonNullable<Awaited<ReturnType<typeof loadInvoice>>>, number: string, data: z.infer<typeof emailInput>) {
+  const db = getDb()
+  const [settings, org] = await Promise.all([
+    db.query.workspaceSettings.findFirst({ where: eq(schema.workspaceSettings.organizationId, ctx.workspaceId) }),
+    db.query.organization.findFirst({ where: eq(schema.organization.id, ctx.workspaceId), columns: { name: true } }),
+  ])
+  const business = settings?.businessName || org?.name || 'Clientflare'
+  const rows: [string, string][] = [
+    ['Invoice', number],
+    ['Total', formatMoney(inv.totalMinor, inv.currency)],
+    ...(inv.dueOn ? [['Due', formatLongDay(inv.dueOn)] as [string, string]] : []),
+  ]
+  await sendMail(
+    invoiceMail({
+      to: data.to,
+      cc: data.copyMe ? ctx.user.email : undefined,
+      replyTo: settings?.businessEmail ?? ctx.user.email,
+      subject: data.subject,
+      heading: `Invoice ${number} from ${business}`,
+      message: data.message,
+      rows,
+      cta: 'View invoice',
+      url: `${appOrigin()}/i/${inv.publicToken}`,
+      from: [business, settings?.businessEmail].filter(Boolean).join(' · '),
+    }),
+  )
+  const now = new Date()
+  const body = `Invoice ${number} emailed to ${data.to}`
+  const stmts = [db.update(schema.invoices).set({ emailedAt: now, emailedTo: data.to, emailCount: sql`${schema.invoices.emailCount} + 1`, updatedAt: now }).where(eq(schema.invoices.id, inv.id))]
+  if (inv.contactId) stmts.push(activityInsert({ workspaceId: ctx.workspaceId, userId: ctx.user.id, targetType: 'contact', targetId: inv.contactId, kind: 'email', body }) as never)
+  if (inv.dealId) stmts.push(activityInsert({ workspaceId: ctx.workspaceId, userId: ctx.user.id, targetType: 'deal', targetId: inv.dealId, kind: 'email', body }) as never)
+  await db.batch(stmts as [typeof stmts[0], ...typeof stmts])
+}
+
+/** Email (again) an invoice that is already sent: a resend or a reminder. */
+export const emailInvoice = createServerFn({ method: 'POST' })
+  .validator(z.object({ id: z.string() }).merge(emailInput))
+  .handler(async ({ data }) => {
+    const ctx = await requireWorkspace()
+    const inv = await loadInvoice(data.id, ctx.workspaceId)
+    if (!inv) throw new Error('Not found')
+    if (inv.status !== 'sent' || !inv.number) throw new Error('Only sent invoices can be emailed')
+    if (!env.RESEND_API_KEY) throw new Error('Email is not set up on this deployment (RESEND_API_KEY is missing)')
+    await sendInvoiceEmail(ctx, inv, inv.number, data)
+    return { ok: true }
   })
 
 function businessBlock(s: typeof schema.workspaceSettings.$inferSelect | undefined, fallbackName: string) {
@@ -308,9 +382,12 @@ export const updateInvoice = createServerFn({ method: 'POST' })
     return { ok: true, revised }
   })
 
-/** draft → sent. Assigns the number. Does not email anything; the share link is what you send. */
+/**
+ * draft → sent. Assigns the number, then emails the client when `email` is given.
+ * The status change commits first, so a mail failure comes back as `emailError` on a sent invoice.
+ */
 export const markInvoiceSent = createServerFn({ method: 'POST' })
-  .validator(z.object({ id: z.string(), sentOn: ISO_DATE.optional() }))
+  .validator(z.object({ id: z.string(), sentOn: ISO_DATE.optional(), email: emailInput.optional() }))
   .handler(async ({ data }) => {
     const ctx = await requireWorkspace()
     const db = getDb()
@@ -318,9 +395,10 @@ export const markInvoiceSent = createServerFn({ method: 'POST' })
     if (!inv) throw new Error('Not found')
     if (inv.status !== 'draft') throw new Error('Only drafts can be marked sent')
     if (!inv.lines.length) throw new Error('Add at least one line first')
+    if (data.email && !env.RESEND_API_KEY) throw new Error('Email is not set up on this deployment (RESEND_API_KEY is missing)')
     const settings = await db.query.workspaceSettings.findFirst({ where: eq(schema.workspaceSettings.organizationId, ctx.workspaceId) })
     const n = settings?.nextInvoiceNumber ?? 1
-    const number = inv.number ?? `${settings?.invoicePrefix ?? 'INV-'}${String(n).padStart(4, '0')}`
+    const number = inv.number ?? nextNumber(settings)
     const now = new Date()
     const stmts = [db.update(schema.invoices).set({ status: 'sent', number, sentAt: now, updatedAt: now }).where(eq(schema.invoices.id, inv.id))]
     if (!inv.number) {
@@ -333,7 +411,15 @@ export const markInvoiceSent = createServerFn({ method: 'POST' })
     }
     if (inv.dealId) stmts.push(activityInsert({ workspaceId: ctx.workspaceId, userId: ctx.user.id, targetType: 'deal', targetId: inv.dealId, kind: 'system', body: `Invoice ${number} sent` }) as never)
     await db.batch(stmts as [typeof stmts[0], ...typeof stmts])
-    return { number }
+    let emailError: string | null = null
+    if (data.email) {
+      try {
+        await sendInvoiceEmail(ctx, inv, number, data.email)
+      } catch (err) {
+        emailError = err instanceof Error ? err.message : 'Could not send the email'
+      }
+    }
+    return { number, emailed: !!data.email && !emailError, emailError }
   })
 
 /** sent → paid. Creates the income (with the marking user's set-asides) and links it. */
