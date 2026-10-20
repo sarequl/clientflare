@@ -77,11 +77,10 @@ Open your Worker's URL, create the first account, and the setup wizard takes it 
 
 ## Updating
 
-**Button deployments** got their own copy of this repo on GitHub, and Cloudflare redeploys it on every push to `main`. The deploy step runs the database migrations, so updating is a merge and a push:
+**Button deployments** got their own copy of this repo on GitHub, and Cloudflare redeploys it on every push to `main`. The copy includes an **Update from upstream** workflow: open the Actions tab of your copy, pick it, press **Run workflow**. It fast-forwards your `main` to this repo and the push redeploys, migrations included. It also runs by itself every Monday. If you have committed your own changes, do the merge by hand instead:
 
 ```sh
-git remote add upstream https://github.com/sarequl/clientflare   # once
-git pull upstream main
+git pull https://github.com/sarequl/clientflare main
 git push
 ```
 
