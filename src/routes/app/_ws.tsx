@@ -343,15 +343,19 @@ function WorkspaceSwitcher({ app, autoFocus }: { app: AppCtx; autoFocus?: boolea
               {switching === w.id ? <Spinner /> : w.id === app.workspace.id ? <IconCheck className="text-accent" /> : null}
             </button>
           ))}
-          <div className="my-1 h-px bg-border" />
-          <Link
-            to="/app/workspaces/new"
-            role="menuitem"
-            className="flex h-8 items-center gap-2 rounded px-2 text-sm text-fg-muted hover:bg-surface-2 hover:text-fg focus-visible:bg-surface-2"
-          >
-            <IconPlus />
-            New workspace
-          </Link>
+          {app.canCreateWorkspace && (
+            <>
+              <div className="my-1 h-px bg-border" />
+              <Link
+                to="/app/workspaces/new"
+                role="menuitem"
+                className="flex h-8 items-center gap-2 rounded px-2 text-sm text-fg-muted hover:bg-surface-2 hover:text-fg focus-visible:bg-surface-2"
+              >
+                <IconPlus />
+                New workspace
+              </Link>
+            </>
+          )}
           {error && <p className="px-2 py-1 text-[12px] text-danger">{error}</p>}
         </div>
       )}

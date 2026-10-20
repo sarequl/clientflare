@@ -12,7 +12,7 @@ import {
 import { errorMessage, formatDayAt } from '#/lib/format'
 import { Badge, Card, CardHeader, Notice, PageHeader } from '#/components/Card'
 import { Button, buttonClass } from '#/components/Button'
-import { CurrencySelect, Field, Input, Select, Textarea } from '#/components/Field'
+import { CurrencySelect, Field, Input, Select, Switch, Textarea } from '#/components/Field'
 import { ConfirmDialog } from '#/components/Modal'
 import { EmptyState } from '#/components/EmptyState'
 import { ThemeToggle } from '#/components/ThemeToggle'
@@ -27,6 +27,7 @@ import { StageSettings } from '#/components/StageSettings'
 import { TabLink, Tabs } from '#/components/Tabs'
 import { parseTaxPercent } from '#/components/InvoiceStatusBadge'
 import { createApiToken, listApiTokens, revokeApiToken } from '#/features/api-tokens/server'
+import { getInstanceSettings, updateInstanceSettings } from '#/features/instance/server'
 import { IconCheck } from '#/components/icons'
 import { IconCopy } from '#/components/icons-invoice'
 import { IconLock } from '#/components/icons2'
@@ -35,7 +36,7 @@ import { INVOICE_TEMPLATES } from '#/components/invoice-templates'
 import { SAMPLE_INVOICE } from '#/components/invoice-templates/sample'
 import { HEX_COLOR, resolveAccent, type InvoiceTemplateId } from '#/lib/invoice-templates'
 
-const TABS = ['workspace', 'members', 'pipeline', 'invoicing', 'tags', 'fields', 'personal', 'api'] as const
+const TABS = ['workspace', 'members', 'pipeline', 'invoicing', 'tags', 'fields', 'personal', 'api', 'instance'] as const
 type Tab = (typeof TABS)[number]
 
 const searchSchema = z.object({ tab: z.enum(TABS).optional().catch(undefined) })
@@ -44,7 +45,7 @@ export const Route = createFileRoute('/app/_ws/settings')({
   validateSearch: (search: Record<string, unknown>) => searchSchema.parse(search),
   loaderDeps: ({ search }) => ({ tab: search.tab ?? 'workspace' }),
   loader: async ({ deps }) => {
-    const [members, tags, fields, invoicing, apiTokens] = await Promise.all([
+    const [members, tags, fields, invoicing, apiTokens, instance] = await Promise.all([
       deps.tab === 'members' ? listMembers() : null,
       deps.tab === 'tags' ? listTags() : null,
       deps.tab === 'fields'
@@ -52,8 +53,9 @@ export const Route = createFileRoute('/app/_ws/settings')({
         : null,
       deps.tab === 'invoicing' ? getInvoiceSettings() : null,
       deps.tab === 'api' ? listApiTokens() : null,
+      deps.tab === 'instance' ? getInstanceSettings().catch(() => null) : null,
     ])
-    return { members, tags, fields, invoicing, apiTokens }
+    return { members, tags, fields, invoicing, apiTokens, instance }
   },
   head: () => ({ meta: [{ title: 'Settings · Clientflare' }] }),
   component: SettingsPage,
@@ -68,18 +70,21 @@ const TAB_LABELS: Record<Tab, string> = {
   fields: 'Custom fields',
   personal: 'Personal',
   api: 'API & MCP',
+  instance: 'Instance',
 }
 
 function SettingsPage() {
   const { tab = 'workspace' } = Route.useSearch()
-  const { members, tags, fields, invoicing, apiTokens } = Route.useLoaderData()
+  const { members, tags, fields, invoicing, apiTokens, instance } = Route.useLoaderData()
+  const app = useApp()
+  const tabs = TABS.filter((t) => t !== 'instance' || app.isInstanceAdmin)
 
   // One width for every tab, strip included, so switching tabs never shifts the layout.
   return (
     <div className="max-w-3xl">
       <PageHeader title="Settings" />
       <Tabs label="Settings sections" className="mb-5">
-        {TABS.map((t) => (
+        {tabs.map((t) => (
           <TabLink key={t} from={Route.fullPath} search={{ tab: t === 'workspace' ? undefined : t }} active={tab === t}>
             {TAB_LABELS[t]}
           </TabLink>
@@ -93,6 +98,7 @@ function SettingsPage() {
       {tab === 'fields' && fields && <FieldSettings fields={fields} />}
       {tab === 'personal' && <PersonalTab />}
       {tab === 'api' && apiTokens && <ApiTab tokens={apiTokens} />}
+      {tab === 'instance' && instance && <InstanceTab settings={instance} />}
     </div>
   )
 }
@@ -860,5 +866,63 @@ function ApiTab({ tokens }: { tokens: ApiTokenRow[] }) {
         body="Anything using this token loses access right away. This can't be undone."
       />
     </div>
+  )
+}
+
+function InstanceTab({ settings }: { settings: NonNullable<Awaited<ReturnType<typeof getInstanceSettings>>> }) {
+  const router = useRouter()
+  const [openSignup, setOpenSignup] = useState(settings.openSignup)
+  const [membersCreate, setMembersCreate] = useState(settings.membersCreateWorkspaces)
+  const [pending, setPending] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [saved, setSaved] = useState(false)
+  const dirty = openSignup !== settings.openSignup || membersCreate !== settings.membersCreateWorkspaces
+
+  async function onSubmit(e: FormEvent) {
+    e.preventDefault()
+    setError(null)
+    setSaved(false)
+    setPending(true)
+    try {
+      await updateInstanceSettings({ data: { openSignup, membersCreateWorkspaces: membersCreate } })
+      setSaved(true)
+      await router.invalidate()
+    } catch (err) {
+      setError(errorMessage(err, 'Could not save.'))
+    } finally {
+      setPending(false)
+    }
+  }
+
+  return (
+    <form onSubmit={onSubmit} className="flex flex-col gap-4">
+      <Card>
+        <CardHeader
+          title="Who can get in"
+          description="These apply to the whole deployment, every workspace on it. Only you see this tab, as the first account created here."
+        />
+        <div className="flex flex-col gap-5 px-4 py-4">
+          <div className="flex flex-col gap-1.5">
+            <Switch id="inst-signup" checked={openSignup} onChange={setOpenSignup} label="Anyone can sign up" />
+            <p className="pl-[2.9rem] text-[13px] text-fg-muted">
+              Off: a new account can only be created for an email that has a pending invitation to a workspace. Sign-in links for unknown emails are refused too.
+            </p>
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Switch id="inst-create" checked={membersCreate} onChange={setMembersCreate} label="Members can create workspaces" />
+            <p className="pl-[2.9rem] text-[13px] text-fg-muted">
+              Off: only you can create workspaces. Everyone else joins the ones they are invited to. Existing workspaces are untouched.
+            </p>
+          </div>
+        </div>
+      </Card>
+      {error && <Notice tone="danger">{error}</Notice>}
+      {saved && !dirty && <Notice tone="accent">Saved.</Notice>}
+      <div>
+        <Button type="submit" variant="primary" pending={pending} disabled={!dirty}>
+          Save
+        </Button>
+      </div>
+    </form>
   )
 }

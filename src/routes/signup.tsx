@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react'
 import { Link, createFileRoute, redirect, useNavigate } from '@tanstack/react-router'
 import { signUp } from '#/lib/auth-client'
 import { getSession } from '#/lib/session'
+import { getSignupPolicy } from '#/features/instance/server'
 import { errorMessage, redirectSearchSchema, safeRedirect } from '#/lib/format'
 import { AuthShell, textLink } from '#/components/AuthShell'
 import { Button } from '#/components/Button'
@@ -16,12 +17,14 @@ export const Route = createFileRoute('/signup')({
     const session = await getSession()
     if (session) throw redirect({ href: safeRedirect(search.redirect) ?? '/app' })
   },
+  loader: () => getSignupPolicy(),
   head: () => ({ meta: [{ title: 'Create account · Clientflare' }] }),
   component: SignupPage,
 })
 
 function SignupPage() {
   const { redirect: rawRedirect } = Route.useSearch()
+  const { openSignup } = Route.useLoaderData()
   const target = safeRedirect(rawRedirect) ?? '/app'
   const navigate = useNavigate()
   const [name, setName] = useState('')
@@ -67,6 +70,9 @@ function SignupPage() {
       }
     >
       <form onSubmit={onSubmit} className="flex flex-col gap-4" noValidate>
+        {!openSignup && (
+          <Notice tone="warn">Signup is invite-only here. Use the email address your invitation was sent to.</Notice>
+        )}
         <Field label="Name" htmlFor="name" error={errors.name}>
           <Input id="name" autoComplete="name" value={name} onChange={(e) => setName(e.target.value)} aria-invalid={!!errors.name} autoFocus />
         </Field>

@@ -1,19 +1,21 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { Link, createFileRoute, useNavigate, useRouter } from '@tanstack/react-router'
-import { createWorkspace } from '#/features/workspaces/server'
+import { createWorkspace, getWorkspaceOnboarding } from '#/features/workspaces/server'
 import { errorMessage } from '#/lib/format'
 import { AuthShell, textLink } from '#/components/AuthShell'
-import { Button } from '#/components/Button'
+import { Button, buttonClass } from '#/components/Button'
 import { CurrencySelect, Field, Input } from '#/components/Field'
 import { Notice } from '#/components/Card'
 import { TimezoneSelect } from '#/components/TimezoneSelect'
 
 export const Route = createFileRoute('/app/workspaces/new')({
+  loader: () => getWorkspaceOnboarding(),
   head: () => ({ meta: [{ title: 'New workspace · Clientflare' }] }),
   component: NewWorkspacePage,
 })
 
 function NewWorkspacePage() {
+  const { canCreate, invitations } = Route.useLoaderData()
   const navigate = useNavigate()
   const router = useRouter()
   const [name, setName] = useState('')
@@ -47,6 +49,34 @@ function NewWorkspacePage() {
     }
   }
 
+  const inviteList = invitations.length > 0 && (
+    <ul className="flex flex-col gap-2">
+      {invitations.map((i) => (
+        <li key={i.id}>
+          <Link to="/invite/$invitationId" params={{ invitationId: i.id }} className={buttonClass('secondary', 'md', 'w-full gap-2')}>
+            <span className="truncate">Join {i.workspaceName}</span>
+            <span className="text-fg-muted capitalize">{i.role}</span>
+          </Link>
+        </li>
+      ))}
+    </ul>
+  )
+
+  if (!canCreate) {
+    return (
+      <AuthShell
+        title={invitations.length ? 'Your invitations' : 'No workspace yet'}
+        description={
+          invitations.length
+            ? 'Pick a workspace to join.'
+            : 'Only the admin of this Clientflare can create workspaces. Ask them to invite you to one; the invitation will show up here.'
+        }
+      >
+        {inviteList || null}
+      </AuthShell>
+    )
+  }
+
   return (
     <AuthShell
       title="New workspace"
@@ -57,6 +87,13 @@ function NewWorkspacePage() {
         </Link>
       }
     >
+      {inviteList && (
+        <div className="mb-6 flex flex-col gap-2">
+          <p className="text-[13px] text-fg-muted">You have been invited to:</p>
+          {inviteList}
+          <p className="text-center text-[13px] text-fg-muted">or create your own</p>
+        </div>
+      )}
       <form onSubmit={onSubmit} className="flex flex-col gap-4" noValidate>
         <Field label="Name" htmlFor="ws-name" error={nameError}>
           <Input id="ws-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Acme Studio" maxLength={80} aria-invalid={!!nameError} autoFocus />

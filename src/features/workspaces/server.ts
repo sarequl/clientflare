@@ -1,23 +1,41 @@
 import { createServerFn } from '@tanstack/react-start'
 import { getRequestHeaders } from '@tanstack/react-start/server'
-import { eq } from 'drizzle-orm'
+import { and, eq, gt } from 'drizzle-orm'
 import { z } from 'zod'
 import { appOrigin } from '#/lib/origin'
 import { getAuth } from '#/lib/auth'
 import { getDb, schema } from '#/db'
 import { requireSession, requireWorkspace, requireRole } from '#/lib/session'
 import { ensureDefaultPipeline } from '#/features/deals/server'
+import { canCreateWorkspace, isInstanceAdmin } from '#/lib/instance'
 
 const CURRENCY = z.string().regex(/^[A-Z]{3}$/, 'Use a 3-letter ISO code')
 
 const slugify = (s: string) =>
   s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40) || 'workspace'
 
+/** For the new-workspace page: may this user create one, and which invitations await them. */
+export const getWorkspaceOnboarding = createServerFn({ method: 'GET' }).handler(async () => {
+  const { user } = await requireSession()
+  const [canCreate, invites] = await Promise.all([
+    canCreateWorkspace(user.id),
+    getDb().query.invitation.findMany({
+      where: and(eq(schema.invitation.email, user.email.toLowerCase()), eq(schema.invitation.status, 'pending'), gt(schema.invitation.expiresAt, new Date())),
+      with: { organization: { columns: { name: true } } },
+    }),
+  ])
+  return {
+    canCreate,
+    invitations: invites.map((i) => ({ id: i.id, role: i.role, workspaceName: i.organization.name })),
+  }
+})
+
 /** Create a workspace (Better Auth organization), its settings row, and make it active. */
 export const createWorkspace = createServerFn({ method: 'POST' })
   .validator(z.object({ name: z.string().trim().min(1).max(80), baseCurrency: CURRENCY, timezone: z.string().min(1) }))
   .handler(async ({ data }) => {
-    await requireSession()
+    const { user } = await requireSession()
+    if (!(await canCreateWorkspace(user.id))) throw new Error('Only the instance admin can create workspaces here. Ask them for an invitation instead.')
     const auth = getAuth()
     const headers = getRequestHeaders()
     const base = slugify(data.name)
@@ -48,7 +66,7 @@ export const getAppContext = createServerFn({ method: 'GET' }).handler(async () 
   const ctx = await requireWorkspace()
   const db = getDb()
   // Plain queries rather than Better Auth's API so this also works for bearer-token sessions (MCP).
-  const [memberships, settings, userSettings] = await Promise.all([
+  const [memberships, settings, userSettings, instanceAdmin, mayCreateWorkspace] = await Promise.all([
     db
       .select({ id: schema.organization.id, name: schema.organization.name, slug: schema.organization.slug, role: schema.member.role })
       .from(schema.member)
@@ -56,6 +74,8 @@ export const getAppContext = createServerFn({ method: 'GET' }).handler(async () 
       .where(eq(schema.member.userId, ctx.user.id)),
     db.query.workspaceSettings.findFirst({ where: eq(schema.workspaceSettings.organizationId, ctx.workspaceId) }),
     db.query.userSettings.findFirst({ where: eq(schema.userSettings.userId, ctx.user.id) }),
+    isInstanceAdmin(ctx.user.id),
+    canCreateWorkspace(ctx.user.id),
   ])
   const orgs = memberships
   const active = memberships.find((o) => o.id === ctx.workspaceId)
@@ -78,6 +98,9 @@ export const getAppContext = createServerFn({ method: 'GET' }).handler(async () 
     personalCurrency: userSettings?.baseCurrency ?? settings?.baseCurrency ?? 'USD',
     setupDone: !!settings?.setupCompletedAt || !['owner', 'admin'].some((r) => (membership?.role ?? '').split(',').includes(r)),
     role: (membership?.role ?? 'member') as 'owner' | 'admin' | 'member',
+    /** First account on this deployment; sees Settings → Instance. */
+    isInstanceAdmin: instanceAdmin,
+    canCreateWorkspace: mayCreateWorkspace,
   }
 })
 

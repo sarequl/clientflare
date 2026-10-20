@@ -1,5 +1,6 @@
 import { env } from 'cloudflare:workers'
 import { betterAuth } from 'better-auth'
+import { APIError, createAuthMiddleware } from 'better-auth/api'
 import { drizzleAdapter } from '@better-auth/drizzle-adapter'
 import { magicLink, organization } from 'better-auth/plugins'
 import { tanstackStartCookies } from 'better-auth/tanstack-start'
@@ -8,6 +9,7 @@ import { newId } from '#/lib/ids'
 import { linkMail, sendMail } from '#/lib/email'
 import { hashPassword, verifyPassword } from '#/lib/password'
 import { appOrigin } from '#/lib/origin'
+import { canCreateWorkspace, canSignUp } from '#/lib/instance'
 
 function createAuth() {
   const db = getDb()
@@ -30,6 +32,22 @@ function createAuth() {
     },
     session: {
       cookieCache: { enabled: true, maxAge: 5 * 60 },
+    },
+    hooks: {
+      // Invite-only signup (instance setting): password signup and magic links for
+      // unknown emails are refused unless a pending invitation exists for that email.
+      before: createAuthMiddleware(async (ctx) => {
+        if (ctx.path !== '/sign-up/email' && ctx.path !== '/sign-in/magic-link') return
+        const email = String(ctx.body?.email ?? '').trim().toLowerCase()
+        if (!email) return
+        if (ctx.path === '/sign-in/magic-link') {
+          const known = await db.query.user.findFirst({ where: (u, { eq }) => eq(u.email, email), columns: { id: true } })
+          if (known) return
+        }
+        if (!(await canSignUp(email))) {
+          throw new APIError('FORBIDDEN', { message: 'Signup is invite-only on this Clientflare. Ask a workspace admin for an invitation.' })
+        }
+      }),
     },
     databaseHooks: {
       session: {
@@ -62,7 +80,7 @@ function createAuth() {
         },
       }),
       organization({
-        allowUserToCreateOrganization: true,
+        allowUserToCreateOrganization: (user) => canCreateWorkspace(user.id),
         organizationLimit: 20,
         creatorRole: 'owner',
         invitationExpiresIn: 60 * 60 * 24 * 7,

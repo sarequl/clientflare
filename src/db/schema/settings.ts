@@ -37,3 +37,16 @@ export const userSettings = sqliteTable('user_settings', {
   baseCurrency: text('base_currency').notNull().default('USD'),
   updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull(),
 })
+
+/**
+ * Install-wide settings, one row (id = 'default'). Editable only by the instance
+ * admin: the first account created on this deployment.
+ */
+export const instanceSettings = sqliteTable('instance_settings', {
+  id: text('id').primaryKey(),
+  /** False: accounts can only be created for an email with a pending invitation. */
+  openSignup: integer('open_signup', { mode: 'boolean' }).notNull().default(true),
+  /** False: only the instance admin can create workspaces; others join by invitation. */
+  membersCreateWorkspaces: integer('members_create_workspaces', { mode: 'boolean' }).notNull().default(true),
+  updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull(),
+})

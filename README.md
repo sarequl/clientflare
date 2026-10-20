@@ -39,7 +39,7 @@ Freelancer tools charge \$20 to \$60 a month to join the same five steps: lead, 
 - **Invoices** that go from draft to sent to paid, with four templates, a public link your client can print, and revisions after sending. Paid invoices flow into income automatically.
 - **Personal finance**: income, expenses, set-aside rules (tax, savings, giving) and payouts, per currency. Private to you, even inside a shared workspace.
 - **Client portal** where customers see their invoices, shared notes and files through a magic link.
-- **Workspaces** with owner, admin and member roles, email invites, and several businesses on one install.
+- **Workspaces** with owner, admin and member roles, email invites, and several businesses on one install. The first account can make the deployment invite-only and decide who may create workspaces.
 - **MCP server**, so Claude, Cursor or any MCP client can work your CRM for you.
 - **Light and dark themes**, keyboard search, and a quick-add screen that works as a phone home-screen app.
 
